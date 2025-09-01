@@ -1,0 +1,15 @@
+/* resources/css/app.css */
+
+/* Importar Bootstrap */
+@import 'bootstrap/dist/css/bootstrap.min.css';
+
+/* Importar Font Awesome */
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
+/* Importar SweetAlert2 */
+@import 'sweetalert2/dist/sweetalert2.min.css';
+
+/* Aquí puedes añadir tus propios estilos personalizados */
+body {
+    font-family: 'Nunito', sans-serif;
+}
