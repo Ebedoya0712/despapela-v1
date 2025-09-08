@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\Multitenantable; // <-- 1. Importamos el Trait
 
 class Document extends Model
 {
-    use HasFactory;
+    use HasFactory, Multitenantable; // <-- 2. Usamos el Trait
 
     protected $fillable = [
         'company_id',
@@ -18,6 +19,8 @@ class Document extends Model
         'status',
         'expires_at',
     ];
+
+    
 
     public function company()
     {
@@ -49,3 +52,4 @@ class Document extends Model
         return $this->hasMany(UniqueLink::class);
     }
 }
+
