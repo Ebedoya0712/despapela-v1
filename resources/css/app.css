@@ -1,15 +1,31 @@
-/* resources/css/app.css */
-
-/* Importar Bootstrap */
+/* 1. Importaciones de Librerías Base */
 @import 'bootstrap/dist/css/bootstrap.min.css';
-
-/* Importar Font Awesome */
 @import '@fortawesome/fontawesome-free/css/all.min.css';
-
-/* Importar SweetAlert2 */
 @import 'sweetalert2/dist/sweetalert2.min.css';
 
-/* Aquí puedes añadir tus propios estilos personalizados */
-body {
-    font-family: 'Nunito', sans-serif;
+/* 2. Estilos y Variables Personalizadas para tu App */
+:root {
+    --sidebar-width: 250px;
+    --sidebar-bg-color: #004A59;
+    --sidebar-link-color: rgba(255, 255, 255, 0.8);
+    --sidebar-link-hover-bg: #006A80;
+    --sidebar-link-active-bg: #9BCF35;
+}
+#wrapper { display: flex; }
+#sidebar-wrapper {
+    width: var(--sidebar-width);
+    min-height: 100vh;
+    background-color: var(--sidebar-bg-color);
+    transition: margin .25s ease-out;
+}
+#page-content-wrapper { flex: 1; min-width: 0; }
+.sidebar-heading { padding: 1rem 1.25rem; font-size: 1.2rem; font-weight: bold; color: white; }
+.list-group-item-action { background-color: transparent; border: 0; color: var(--sidebar-link-color); padding: 1rem 1.25rem; }
+.list-group-item-action:hover { background-color: var(--sidebar-link-hover-bg); color: white; }
+.list-group-item-action.active { background-color: var(--sidebar-link-active-bg); color: #004A59; font-weight: bold; }
+#wrapper.toggled #sidebar-wrapper { margin-left: calc(-1 * var(--sidebar-width)); }
+
+@media (max-width: 992px) {
+    #sidebar-wrapper { margin-left: calc(-1 * var(--sidebar-width)); }
+    #wrapper.toggled #sidebar-wrapper { margin-left: 0; }
 }

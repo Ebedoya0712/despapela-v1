@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -21,6 +20,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role_id',
     ];
 
     /**
@@ -42,4 +42,47 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    // --- RELACIONES ---
+
+    /**
+     * El rol al que pertenece este usuario.
+     */
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+    /**
+     * Los documentos que este usuario ha subido (si es Técnico).
+     */
+    public function documentsUploaded()
+    {
+        return $this->hasMany(Document::class, 'uploader_id');
+    }
+
+    /**
+     * Las firmas que este usuario ha realizado.
+     */
+    public function signatures()
+    {
+        return $this->hasMany(DocumentSignature::class, 'signer_id');
+    }
+
+    /**
+     * Las empresas que este usuario gestiona (si es Gestor).
+     */
+    public function managedCompanies()
+    {
+        return $this->hasMany(Company::class, 'gestor_id');
+    }
+
+    /**
+     * Las empresas a las que este usuario pertenece (como Técnico o Trabajador).
+     */
+    public function companies()
+    {
+        return $this->belongsToMany(Company::class);
+    }
 }
+
