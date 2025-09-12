@@ -43,15 +43,32 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
 
-    // --- RELACIONES ---
-
     /**
      * El rol al que pertenece este usuario.
      */
-    public function role()
-    {
+    public function role() {
         return $this->belongsTo(Role::class);
     }
+
+    // --- RELACIONES DE EMPRESA ---
+
+    /**
+     * Relación para un GESTOR.
+     * Devuelve las empresas que este usuario posee directamente.
+     */
+    public function managedCompanies() {
+        return $this->hasMany(Company::class, 'gestor_id');
+    }
+
+    /**
+     * Relación para TÉCNICOS y TRABAJADORES.
+     * Devuelve las empresas de las que son miembros a través de la tabla pivote.
+     */
+    public function memberOfCompanies() {
+        return $this->belongsToMany(Company::class);
+    }
+
+    // --- OTRAS RELACIONES ---
 
     /**
      * Los documentos que este usuario ha subido (si es Técnico).
@@ -67,22 +84,6 @@ class User extends Authenticatable
     public function signatures()
     {
         return $this->hasMany(DocumentSignature::class, 'signer_id');
-    }
-
-    /**
-     * Las empresas que este usuario gestiona (si es Gestor).
-     */
-    public function managedCompanies()
-    {
-        return $this->hasMany(Company::class, 'gestor_id');
-    }
-
-    /**
-     * Las empresas a las que este usuario pertenece (como Técnico o Trabajador).
-     */
-    public function companies()
-    {
-        return $this->belongsToMany(Company::class);
     }
 }
 

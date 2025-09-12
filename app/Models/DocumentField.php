@@ -16,6 +16,7 @@ class DocumentField extends Model
         'type',
         'name',
         'coordinates',
+        'value', 
     ];
     
     protected $casts = [

@@ -23,10 +23,12 @@
                             <tr>
                                 <td>{{ $company->id }}</td>
                                 <td>{{ $company->name }}</td>
-                                <td>{{-- Lógica para contar técnicos --}}</td>
-                                <td>{{-- Lógica para contar trabajadores --}}</td>
+                                {{-- Lógica para contar el personal usando las relaciones del modelo --}}
+                                <td>{{ $company->staff()->whereHas('role', fn($q) => $q->where('name', 'Técnico'))->count() }}</td>
+                                <td>{{ $company->staff()->whereHas('role', fn($q) => $q->where('name', 'Trabajador'))->count() }}</td>
                                 <td class="text-nowrap">
-                                    <a href="#" class="btn btn-sm btn-primary" title="Gestionar Personal">
+                                    {{-- El botón ahora apunta a la ruta correcta para gestionar el personal de esta empresa --}}
+                                    <a href="{{ route('gestor.companies.staff.index', $company->id) }}" class="btn btn-sm btn-primary" title="Gestionar Personal">
                                         <i class="fas fa-users-cog me-1"></i> Gestionar Personal
                                     </a>
                                 </td>
@@ -52,3 +54,4 @@
     </script>
     @endpush
 </x-app-layout>
+

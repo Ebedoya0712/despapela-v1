@@ -68,7 +68,7 @@
                 
                 {{-- MÓDULO DEL GESTOR --}}
                 @can('manage-technicians')
-                    @cannot('manage-companies') {{-- Asegura que esto solo lo vea el Gestor --}}
+                    @cannot('manage-companies') {{-- Asegura que solo lo vea el Gestor --}}
                         <a href="{{ route('gestor.companies.index') }}" class="list-group-item list-group-item-action {{ request()->routeIs('gestor.companies.*') ? 'active' : '' }}">
                             <i class="fas fa-briefcase fa-fw me-3"></i><span>Mis Empresas</span>
                         </a>
@@ -77,7 +77,12 @@
 
                 {{-- MÓDULO DEL TÉCNICO --}}
                 @can('manage-documents')
-                     <a href="#" class="list-group-item list-group-item-action"><i class="fas fa-tasks fa-fw me-3"></i><span>Empresas Asignadas</span></a>
+                     <a href="{{ route('tecnico.companies.index') }}" class="list-group-item list-group-item-action {{ request()->routeIs('tecnico.companies.*') ? 'active' : '' }}">
+                        <i class="fas fa-tasks fa-fw me-3"></i><span>Empresas Asignadas</span>
+                     </a>
+                     <a href="{{ route('tecnico.documents.index') }}" class="list-group-item list-group-item-action {{ request()->routeIs('tecnico.documents.*') ? 'active' : '' }}">
+                        <i class="fas fa-file-alt fa-fw me-3"></i><span>Gestionar Documentos</span>
+                     </a>
                 @endcan
                  
                  {{-- MÓDULO DEL TRABAJADOR / TÉCNICO --}}
@@ -121,18 +126,8 @@
             </main>
         </div>
     </div>
-
-    <!-- Scripts -->
-    <script>
-        const sidebarToggle = document.body.querySelector('#sidebarToggle');
-        if (sidebarToggle) {
-            sidebarToggle.addEventListener('click', event => {
-                event.preventDefault();
-                document.body.querySelector('#wrapper').classList.toggle('toggled');
-            });
-        }
-    </script>
     
+    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
@@ -144,8 +139,16 @@
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.colVis.min.js"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        const sidebarToggle = document.body.querySelector('#sidebarToggle');
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', event => {
+                event.preventDefault();
+                document.body.querySelector('#wrapper').classList.toggle('toggled');
+            });
+        }
+    </script>
     @stack('scripts')
 </body>
 </html>
-

@@ -9,10 +9,10 @@ class Company extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'gestor_id']; // Añade gestor_id aquí
+    protected $fillable = ['name', 'gestor_id'];
 
     /**
-     * El Gestor (dueño) de esta empresa.
+     * Devuelve el usuario que es el GESTOR (dueño) de esta empresa.
      */
     public function gestor()
     {
@@ -20,13 +20,16 @@ class Company extends Model
     }
 
     /**
-     * Los usuarios (Técnicos y Trabajadores) que pertenecen a esta empresa.
+     * Devuelve todos los TÉCNICOS y TRABAJADORES que son miembros de esta empresa.
      */
-    public function users()
+    public function staff()
     {
         return $this->belongsToMany(User::class);
     }
-    
+
+    /**
+     * Devuelve todos los documentos que pertenecen a esta empresa.
+     */
     public function documents()
     {
         return $this->hasMany(Document::class);
