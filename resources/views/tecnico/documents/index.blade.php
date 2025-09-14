@@ -3,12 +3,7 @@
         {{ __('Gestionar Documentos') }}
     </x-slot>
 
-    @if (session('success'))
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
+    {{-- Eliminamos la alerta de Bootstrap de aquí. Ahora la manejará SweetAlert2. --}}
 
     <div class="card border-0 shadow-sm rounded-3">
         <div class="card-body">
@@ -40,9 +35,15 @@
                                 <td><span class="badge bg-secondary">{{ ucfirst($document->status) }}</span></td>
                                 <td>{{ $document->created_at->format('d/m/Y') }}</td>
                                 <td class="text-nowrap">
-                                    {{-- INICIO DEL CAMBIO --}}
-                                    <a href="{{ route('tecnico.documents.defineFields', $document->id) }}" class="btn btn-sm btn-outline-primary" title="Definir Campos"><i class="fas fa-edit"></i></a>
-                                    {{-- FIN DEL CAMBIO --}}
+                                    {{-- INICIO DE LOS CAMBIOS --}}
+                                    <a href="{{ route('tecnico.documents.edit', $document->id) }}" class="btn btn-sm btn-outline-primary" title="Editar / Definir Campos"><i class="fas fa-edit"></i></a>
+                                    
+                                    <form action="{{ route('tecnico.documents.destroy', $document->id) }}" method="POST" class="d-inline delete-form">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar"><i class="fas fa-trash"></i></button>
+                                    </form>
+                                    {{-- FIN DE LOS CAMBIOS --}}
                                 </td>
                             </tr>
                         @empty
@@ -61,6 +62,42 @@
         $(document).ready(function() {
             $('#documentsTable').DataTable({
                 language: { url: 'https://cdn.datatables.net/plug-ins/1.12.1/i18n/es-ES.json' }
+            });
+
+            // --- LÓGICA DE SWEETALERT ---
+
+            // 1. Notificación Toast para mensajes de éxito
+            @if (session('success'))
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: '{{ session('success') }}',
+                    showConfirmButton: false,
+                    timer: 5000,
+                    timerProgressBar: true
+                });
+            @endif
+
+            // 2. Alerta de Confirmación antes de Eliminar
+            $('.delete-form').on('submit', function(event) {
+                event.preventDefault();
+                const form = this;
+
+                Swal.fire({
+                    title: '¿Estás seguro de eliminar este documento?',
+                    text: "¡No podrás revertir esta acción!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Sí, ¡bórralo!',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        form.submit();
+                    }
+                });
             });
         });
     </script>

@@ -86,8 +86,17 @@
                 @endcan
                  
                  {{-- MÓDULO DEL TRABAJADOR / TÉCNICO --}}
-                 @can('sign-documents')
-                     <a href="#" class="list-group-item list-group-item-action"><i class="fas fa-file-signature fa-fw me-3"></i><span>Documentos para Firmar</span></a>
+                 @can('assign-documents')
+                     <a href="{{ route('tecnico.assignment.list') }}" class="list-group-item list-group-item-action {{ request()->routeIs('tecnico.assignment.*') ? 'active' : '' }}">
+                        <i class="fas fa-paper-plane fa-fw me-3"></i><span>Asignar Documentos</span>
+                     </a>
+                @endcan
+                 
+                {{-- MÓDULO DEL TRABAJADOR (YA NO LO VE EL TÉCNICO) --}}
+                @can('view-signature-inbox')
+                     <a href="{{ route('signatures.index') }}" class="list-group-item list-group-item-action {{ request()->routeIs('signatures.*') ? 'active' : '' }}">
+                        <i class="fas fa-file-signature fa-fw me-3"></i><span>Documentos para Firmar</span>
+                     </a>
                 @endcan
             </div>
         </div>

@@ -23,6 +23,7 @@ class DocumentField extends Model
         'coordinates' => 'array',
     ];
 
+
     public function document()
     {
         return $this->belongsTo(Document::class);

@@ -12,7 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('document_fields', function (Blueprint $table) {
-            $table->text('value')->nullable()->after('name');
+            // Para guardar el texto que el usuario escribe (ej. "Juan Pérez").
+            // Lo hacemos nullable por si algún campo no requiere un valor escrito.
+            $table->string('name')->nullable()->after('tag_id');
+
+            // Para guardar la firma en Base64. Usamos longText para asegurar que quepa.
+            $table->longText('value')->nullable()->after('name');
         });
     }
 
@@ -22,7 +27,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('document_fields', function (Blueprint $table) {
-            $table->dropColumn('value');
+            // Esto permite revertir la migración si es necesario
+            $table->dropColumn(['name', 'value']);
         });
     }
 };

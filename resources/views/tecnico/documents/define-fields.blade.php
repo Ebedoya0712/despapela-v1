@@ -43,42 +43,37 @@
     </div>
 
     @push('scripts')
-    {{-- Librerías para PDF y para la Firma Digital --}}
+    {{-- Librerías requeridas --}}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // --- ESTILOS CSS PARA LOS CAMPOS (MEJORA VISUAL) ---
+            // --- ESTILOS CSS ---
             const styles = `
                 .field-box {
-                    position: absolute; border: 2px dashed #0d6efd; background-color: rgba(13, 110, 253, 0.2);
+                    position: absolute; border: 2px dashed #0d6efd; background-color: rgba(255, 255, 0, 0.2);
                     cursor: move; z-index: 10; display: flex; align-items: center; justify-content: center; overflow: hidden;
                 }
-                .field-box img {
-                    width: 100%; height: 100%; object-fit: contain; pointer-events: none;
-                }
-                .field-box.selected {
-                    border-style: solid; border-color: #ffc107; background-color: rgba(255, 193, 7, 0.3);
-                }
+                .field-box img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+                .field-box.selected { border-style: solid; border-color: #ffc107; background-color: rgba(255, 193, 7, 0.3); }
                 .delete-btn {
-                    position: absolute; top: -10px; right: -10px; width: 22px; height: 22px;
-                    background-color: #dc3545; color: white; border: 2px solid white; border-radius: 50%;
-                    display: none; align-items: center; justify-content: center; line-height: 18px; font-size: 14px; font-weight: bold;
-                    cursor: pointer; z-index: 12; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                    position: absolute; top: -10px; right: -10px; width: 22px; height: 22px; background-color: #dc3545; color: white;
+                    border: 2px solid white; border-radius: 50%; display: none; align-items: center; justify-content: center;
+                    line-height: 18px; font-size: 14px; font-weight: bold; cursor: pointer; z-index: 12; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
                 }
                 .field-box.selected .delete-btn { display: flex; }
-                .field-placeholder {
-                    color: #0a58ca; font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; text-align: center;
-                    user-select: none; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px;
+                .field-box-input {
+                    width: 100%; height: 100%; border: none; background-color: transparent; text-align: center;
+                    font-family: Arial, sans-serif; font-size: 14px; padding: 0 5px; color: #000;
                 }
+                .field-box-input:focus { outline: none; box-shadow: 0 0 5px rgba(13, 110, 253, 0.5); }
                 .field-label {
                     position: absolute; top: -22px; left: -2px; background-color: #0d6efd; color: white; padding: 2px 5px;
                     font-size: 10px; border-radius: 3px; white-space: nowrap; user-select: none;
                 }
-                .resizer {
-                    width: 10px; height: 10px; background: white; border: 1px solid #0d6efd; position: absolute; z-index: 11;
-                }
+                .resizer { width: 10px; height: 10px; background: white; border: 1px solid #0d6efd; position: absolute; z-index: 11; }
                 .resizer.se { cursor: se-resize; right: -5px; bottom: -5px; }
             `;
             const styleSheet = document.createElement("style");
@@ -88,45 +83,49 @@
             // --- CONFIGURACIÓN E INICIALIZACIÓN ---
             const pdfUrl = "{{ $documentUrl }}";
             const existingFields = @json($existingFields);
+            const tags = @json($tags);
             let fields = [];
             let pdfDoc = null;
             let pageNum = 1;
-            let selectedFieldId = null; // Variable para el campo seleccionado
+            let selectedFieldId = null;
             const canvas = document.getElementById('pdf-viewer');
             const fieldsContainer = document.getElementById('fields-container');
 
             pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js`;
 
+            pdfjsLib.getDocument(pdfUrl).promise.then(pdfDoc_ => {
+                pdfDoc = pdfDoc_;
+                document.getElementById('page-count').textContent = pdfDoc.numPages;
+                fields = existingFields.map(field => ({
+                    id: field.id, name: field.name, type: field.type, value: field.value, ...field.coordinates
+                }));
+                renderPage(pageNum);
+                renderFieldsList();
+            });
+
             function renderPage(num) {
+                if (!pdfDoc) return;
                 pdfDoc.getPage(num).then(page => {
                     const viewport = page.getViewport({ scale: 1.5 });
                     canvas.height = viewport.height;
                     canvas.width = viewport.width;
                     fieldsContainer.style.height = `${viewport.height}px`;
                     fieldsContainer.style.width = `${viewport.width}px`;
-                    page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise.then(() => drawFieldsForPage(num));
+                    page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise.then(() => {
+                        drawFieldsForPage(num);
+                    });
                 });
                 document.getElementById('page-num').textContent = num;
             }
 
-            pdfjsLib.getDocument(pdfUrl).promise.then(pdfDoc_ => {
-                pdfDoc = pdfDoc_;
-                document.getElementById('page-count').textContent = pdfDoc.numPages;
-                fields = existingFields.map((field, index) => ({ id: field.id || Date.now() + index, name: field.name, type: field.type, value: field.value, ...field.coordinates }));
-                renderPage(pageNum);
-                renderFieldsList();
-            });
-
-            // --- MANEJO DE CAMPOS ---
             function drawFieldsForPage(page) {
                 fieldsContainer.innerHTML = '';
                 fields.filter(f => f.page === page).forEach(field => {
                     const fieldDiv = document.createElement('div');
                     fieldDiv.className = 'field-box';
                     fieldDiv.dataset.id = field.id;
-                    if (field.id === selectedFieldId) {
-                        fieldDiv.classList.add('selected');
-                    }
+                    if (field.id === selectedFieldId) fieldDiv.classList.add('selected');
+                    
                     fieldDiv.style.left = `${field.x}px`;
                     fieldDiv.style.top = `${field.y}px`;
                     fieldDiv.style.width = `${field.width}px`;
@@ -136,20 +135,21 @@
                     label.className = 'field-label';
                     label.textContent = field.name;
                     fieldDiv.appendChild(label);
-                    
-                    if (field.type === 'signature' && field.value) {
-                        const img = document.createElement('img');
-                        img.src = field.value;
-                        fieldDiv.appendChild(img);
-                        fieldDiv.style.backgroundColor = fieldDiv.classList.contains('selected') ? 'rgba(255, 193, 7, 0.2)' : 'rgba(13, 110, 253, 0.05)';
-                    } else {
-                        const placeholder = document.createElement('div');
-                        placeholder.className = 'field-placeholder';
-                        placeholder.textContent = field.name; 
-                        fieldDiv.appendChild(placeholder);
-                        fieldDiv.style.backgroundColor = fieldDiv.classList.contains('selected') ? 'rgba(255, 193, 7, 0.3)' : 'rgba(13, 110, 253, 0.2)';
-                    }
 
+                    if (field.type === 'signature') {
+                        const img = document.createElement('img');
+                        img.src = field.value || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+                        fieldDiv.appendChild(img);
+                    } else {
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.className = 'field-box-input';
+                        input.placeholder = `Escribe: ${field.name}`;
+                        input.value = field.value || '';
+                        input.addEventListener('input', (e) => { field.value = e.target.value; });
+                        fieldDiv.appendChild(input);
+                    }
+                    
                     const deleteBtn = document.createElement('button');
                     deleteBtn.className = 'delete-btn';
                     deleteBtn.innerHTML = '&times;';
@@ -173,8 +173,7 @@
                 fields.forEach(field => {
                     const item = document.createElement('div');
                     item.className = 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded small';
-                    item.innerHTML = `<div><strong>${field.name}</strong><br><span class="badge bg-secondary">${field.type}</span></div>
-                                    <button class="btn btn-sm btn-outline-danger py-0 px-1">&times;</button>`;
+                    item.innerHTML = `<div><strong>${field.name}</strong></div><button class="btn btn-sm btn-outline-danger py-0 px-1">&times;</button>`;
                     item.querySelector('button').onclick = () => {
                         fields = fields.filter(f => f.id !== field.id);
                         selectedFieldId = null;
@@ -195,22 +194,19 @@
                     }
                 }
             });
-
+            
             function openCreateFieldModal(e) {
+                const tagOptions = tags.map(tag => `<option value="${tag.name}">${tag.name}</option>`).join('');
                 Swal.fire({
                     title: 'Añadir Nuevo Campo',
-                    html: `<input id="swal-name" class="swal2-input" placeholder="Nombre del Campo (ej. firma_gerente)">
-                           <select id="swal-type" class="swal2-select">
-                               <option value="text">Texto</option>
-                               <option value="signature">Firma</option>
-                               <option value="date">Fecha</option>
-                           </select>`,
-                    focusConfirm: false,
-                    preConfirm: () => ({ name: document.getElementById('swal-name').value, type: document.getElementById('swal-type').value })
+                    html: `<select id="swal-tag-name" class="swal2-select"><option value="" disabled selected>-- Elige un campo --</option>${tagOptions}</select>`,
+                    preConfirm: () => document.getElementById('swal-tag-name').value || Swal.showValidationMessage('Debes seleccionar un campo')
                 }).then(result => {
-                    if (!result.isConfirmed || !result.value.name) return;
-                    const fieldData = result.value;
-                    if (fieldData.type === 'signature') {
+                    if (!result.isConfirmed || !result.value) return;
+                    const tagName = result.value;
+                    const fieldType = (tagName === 'CAMPO DE FIRMA DIBUJADO') ? 'signature' : 'text';
+                    const fieldData = { name: tagName, type: fieldType };
+                    if (fieldType === 'signature') {
                         openSignatureModal().then(signatureDataUrl => {
                             if (signatureDataUrl) createField(fieldData, e, signatureDataUrl);
                         });
@@ -220,16 +216,19 @@
                 });
             }
 
-            function createField(fieldData, event, signatureValue = null) {
+            function createField(fieldData, event, fieldValue = null) {
                 const newField = {
-                    id: Date.now(), name: fieldData.name, type: fieldData.type,
+                    id: Date.now(),
+                    name: fieldData.name,
+                    type: fieldData.type,
+                    value: fieldValue,
                     page: pageNum,
                     x: event.offsetX, y: event.offsetY,
-                    width: signatureValue ? 200 : 150, height: signatureValue ? 80 : 40,
-                    value: signatureValue
+                    width: fieldValue ? 200 : 180, 
+                    height: fieldValue ? 80 : 40,
                 };
                 fields.push(newField);
-                selectedFieldId = newField.id; // Selecciona el campo recién creado
+                selectedFieldId = newField.id;
                 renderFieldsList();
                 drawFieldsForPage(pageNum);
             }
@@ -242,15 +241,13 @@
                             <canvas id="signature-canvas" style="border: 1px solid black; width: 100%; height: 100%;"></canvas>
                         </div>
                         <small class="text-muted">Dibuja tu firma o sube una imagen.</small>
-                        <input type="file" id="signature-upload" accept="image/png" class="form-control form-control-sm mt-2">
-                    `,
+                        <input type="file" id="signature-upload" accept="image/png" class="form-control form-control-sm mt-2">`,
                     showCancelButton: true,
                     confirmButtonText: 'Guardar Firma',
                     width: '600px',
                     didOpen: () => {
                         const canvas = document.getElementById('signature-canvas');
                         const signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
-                        
                         document.getElementById('signature-upload').addEventListener('change', function(event) {
                             const file = event.target.files[0];
                             if (file) {
@@ -269,12 +266,12 @@
                         }
                         return signaturePad.toDataURL('image/png');
                     }
-                }).then(result => {
-                    return result.isConfirmed ? result.value : null;
-                });
+                }).then(result => result.isConfirmed ? result.value : null);
             }
 
+            // <-- CÓDIGO COMPLETO RESTAURADO -->
             function makeResizableAndDraggable(element, field) {
+                // Lógica para seleccionar y mover
                 element.addEventListener('mousedown', function(e) {
                     if (selectedFieldId !== field.id) {
                         selectedFieldId = field.id;
@@ -282,7 +279,9 @@
                         e.stopPropagation(); 
                         return;
                     }
-                    if (e.target.classList.contains('resizer') || e.target.classList.contains('delete-btn')) return;
+                    if (e.target.tagName === 'INPUT' || e.target.classList.contains('resizer') || e.target.classList.contains('delete-btn')) {
+                        return;
+                    }
                     e.preventDefault();
                     let prevX = e.clientX; let prevY = e.clientY;
                     function mousemove(e) {
@@ -300,6 +299,7 @@
                     window.addEventListener('mouseup', mouseup);
                 });
 
+                // Lógica para redimensionar
                 const resizer = document.createElement('div');
                 resizer.className = 'resizer se';
                 element.appendChild(resizer);
@@ -329,26 +329,32 @@
                     x: f.x, y: f.y, width: f.width, height: f.height,
                     value: f.value || null
                 }));
-
                 fetch("{{ route('tecnico.documents.saveFields', $document->id) }}", {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') },
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json' },
                     body: JSON.stringify({ fields: saveData })
                 })
                 .then(response => {
-                    if (!response.ok) throw new Error('Error de red o del servidor.');
+                    if (response.redirected) { throw new Error('Tu sesión ha expirado. Por favor, recarga la página.'); }
+                    if (!response.ok) { return response.json().then(err => { throw err; }); }
                     return response.json();
                 })
                 .then(data => {
-                    if(data.success) { Swal.fire('¡Guardado!', data.success, 'success'); } 
-                    else { Swal.fire('Error', data.message || 'No se pudieron guardar los campos.', 'error'); }
+                    if(data.success) { 
+                        Swal.fire('¡Guardado!', data.success, 'success');
+                    } 
                 })
-                .catch(error => Swal.fire('Error', error.message, 'error'));
+                .catch(error => {
+                    let errorMessage = 'Ocurrió un error inesperado.';
+                    if (error.message) { errorMessage = error.message; }
+                    if (error.errors) { errorMessage = Object.values(error.errors).join('\n'); }
+                    Swal.fire('Error', errorMessage, 'error');
+                });
             });
-
+            
             document.getElementById('prev-page').addEventListener('click', () => { if (pageNum > 1) { pageNum--; renderPage(pageNum); } });
             document.getElementById('next-page').addEventListener('click', () => { if (pdfDoc && pageNum < pdfDoc.numPages) { pageNum++; renderPage(pageNum); } });
         });
     </script>
-    @endpush
+@endpush
 </x-app-layout>

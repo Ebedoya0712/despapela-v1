@@ -13,10 +13,17 @@ return new class extends Migration
     {
         Schema::create('document_fields', function (Blueprint $table) {
             $table->id();
+
+            // --- Columnas Esenciales ---
             $table->foreignId('document_id')->constrained()->onDelete('cascade');
-            $table->string('type');
-            $table->string('name');
-            $table->json('coordinates');
+            $table->foreignId('company_id')->constrained()->onDelete('cascade');
+            
+            // --- Columnas para el Editor "Todo en Uno" ---
+            $table->string('name'); // Guarda el nombre del tag (ej. "DNI")
+            $table->string('type'); // Guarda el tipo interno ('text' o 'signature')
+            $table->longText('value')->nullable(); // Guarda el texto escrito o la firma Base64
+            $table->json('coordinates'); // Guarda la posición y tamaño
+
             $table->timestamps();
         });
     }

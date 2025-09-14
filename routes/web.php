@@ -6,8 +6,10 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\CompanyController as AdminCompanyController;
 use App\Http\Controllers\Gestor\Gestorcontroller;
 use App\Http\Controllers\Gestor\StaffController as GestorStaffController; // <-- 1. Se añade la importación correcta
+use App\Http\Controllers\SignatureController;
 use App\Http\Controllers\Tecnico\DocumentController as TecnicoDocumentController;
 use App\Http\Controllers\Tecnico\CompanyController as TecnicoCompanyController;
+use App\Http\Controllers\Tecnico\AssignmentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -66,6 +68,23 @@ Route::middleware(['auth', 'can:manage-documents'])->prefix('tecnico')->name('te
     
     // Rutas para que el Técnico gestione los documentos DENTRO de una empresa
     Route::resource('documents', TecnicoDocumentController::class);
+
+    Route::middleware('can:assign-documents')->name('assignment.')->group(function () {
+        Route::get('/assignment', [AssignmentController::class, 'listDocuments'])->name('list');
+        Route::get('/assignment/{document}', [AssignmentController::class, 'showAssignmentForm'])->name('showForm');
+        Route::post('/assignment/{document}', [AssignmentController::class, 'assignToWorkers'])->name('assign');
+    });
+});
+
+
+
+Route::middleware(['auth', 'can:sign-documents'])->prefix('signatures')->name('signatures.')->group(function () {
+    // Ruta para la lista de documentos pendientes
+    Route::get('/', [SignatureController::class, 'index'])->name('index');
+    // Ruta para mostrar la página de firma (usando el token del enlace único)
+    Route::get('/sign/{uniqueLink:token}', [SignatureController::class, 'show'])->name('show');
+    // Ruta para procesar y guardar la firma
+    Route::post('/sign/{uniqueLink:token}', [SignatureController::class, 'store'])->name('store');
 });
 
 require __DIR__.'/auth.php';

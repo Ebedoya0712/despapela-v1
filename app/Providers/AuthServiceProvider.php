@@ -52,6 +52,14 @@ class AuthServiceProvider extends ServiceProvider
             return $user->role->name === 'Técnico';
         });
 
+        Gate::define('assign-documents', fn(User $user) => $user->role->name === 'Técnico');
+        
+        // Permiso para que el Trabajador firme (el Técnico también puede, por herencia)
+        Gate::define('sign-documents', fn(User $user) => in_array($user->role->name, ['Trabajador', 'Técnico']));
+
+        // Nuevo permiso para ver la bandeja de entrada "Documentos para Firmar" (SOLO TRABAJADOR)
+        Gate::define('view-signature-inbox', fn(User $user) => $user->role->name === 'Trabajador');
+
         // PERMISO PARA FIRMAR DOCUMENTOS (Trabajador y Técnico)
         Gate::define('sign-documents', function (User $user) {
             return in_array($user->role->name, ['Trabajador', 'Técnico']);
