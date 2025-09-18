@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\CompanyController as AdminCompanyController;
 use App\Http\Controllers\Gestor\Gestorcontroller;
-use App\Http\Controllers\Gestor\StaffController as GestorStaffController; // <-- 1. Se añade la importación correcta
+use App\Http\Controllers\Gestor\StaffController as GestorStaffController;
 use App\Http\Controllers\SignatureController;
 use App\Http\Controllers\Tecnico\DocumentController as TecnicoDocumentController;
 use App\Http\Controllers\Tecnico\CompanyController as TecnicoCompanyController;
@@ -16,9 +16,7 @@ use App\Http\Controllers\Tecnico\AssignmentController;
 | Web Routes
 |--------------------------------------------------------------------------
 |
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
+| Aquí se registran las rutas web de la aplicación.
 |
 */
 
@@ -37,6 +35,15 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+// --- Rutas para Firmas ---
+Route::middleware('auth')->prefix('signatures')->name('signatures.')->group(function () {
+    Route::get('/', [SignatureController::class, 'index'])->name('index');
+    // 👇 CORRECCIÓN APLICADA AQUÍ 👇
+    Route::get('/{uniqueLink:token}', [SignatureController::class, 'show'])->name('show');
+    // 👇 Y AQUÍ 👇
+    Route::post('/{uniqueLink:token}', [SignatureController::class, 'store'])->name('store');
+});
+
 // --- Rutas del ADMINISTRADOR ---
 Route::middleware(['auth', 'can:manage-platform-users'])->prefix('admin')->name('admin.')->group(function () {
     Route::resource('users', UserController::class);
@@ -48,8 +55,6 @@ Route::middleware(['auth', 'can:manage-platform-users'])->prefix('admin')->name(
 // --- Rutas del GESTOR ---
 Route::middleware(['auth', 'can:manage-technicians'])->prefix('gestor')->name('gestor.')->group(function () {
     Route::get('companies', [Gestorcontroller::class, 'index'])->name('companies.index');
-
-    // 2. Se usa el controlador correcto que hemos importado
     Route::resource('companies.staff', GestorStaffController::class);
 });
 
@@ -69,23 +74,22 @@ Route::middleware(['auth', 'can:manage-documents'])->prefix('tecnico')->name('te
     // Rutas para que el Técnico gestione los documentos DENTRO de una empresa
     Route::resource('documents', TecnicoDocumentController::class);
 
-    Route::middleware('can:assign-documents')->name('assignment.')->group(function () {
-        Route::get('/assignment', [AssignmentController::class, 'listDocuments'])->name('list');
-        Route::get('/assignment/{document}', [AssignmentController::class, 'showAssignmentForm'])->name('showForm');
-        Route::post('/assignment/{document}', [AssignmentController::class, 'assignToWorkers'])->name('assign');
+    Route::middleware('can:assign-documents')->prefix('assignment')->name('assignment.')->group(function () {
+        Route::get('/', [AssignmentController::class, 'listDocuments'])->name('list');
+        Route::get('/{document}', [AssignmentController::class, 'showAssignmentForm'])->name('showForm');
+        Route::post('/{document}', [AssignmentController::class, 'assignToWorkers'])->name('assign');
+
+        // Nueva ruta para regenerar enlace de un trabajador
+        Route::post('/{document}/{worker}/regenerate-link', [AssignmentController::class, 'regenerateLink'])
+            ->name('regenerateLink');
     });
 });
 
-
-
-Route::middleware(['auth', 'can:sign-documents'])->prefix('signatures')->name('signatures.')->group(function () {
-    // Ruta para la lista de documentos pendientes
-    Route::get('/', [SignatureController::class, 'index'])->name('index');
-    // Ruta para mostrar la página de firma (usando el token del enlace único)
-    Route::get('/sign/{uniqueLink:token}', [SignatureController::class, 'show'])->name('show');
-    // Ruta para procesar y guardar la firma
-    Route::post('/sign/{uniqueLink:token}', [SignatureController::class, 'store'])->name('store');
+// --- Rutas para Documentos ya Firmados ---
+Route::middleware('can:view-signed-documents')->prefix('signed')->name('signed.')->group(function () {
+    Route::get('/', [SignatureController::class, 'signedIndex'])->name('index');
+    Route::get('/{documentSignature}/view', [SignatureController::class, 'viewSignedPdf'])->name('view');
+    Route::post('/{document}/generate-link', [SignatureController::class, 'regenerateLink'])->name('generateLink');
 });
 
 require __DIR__.'/auth.php';
-

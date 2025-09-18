@@ -98,6 +98,13 @@
                         <i class="fas fa-file-signature fa-fw me-3"></i><span>Documentos para Firmar</span>
                      </a>
                 @endcan
+
+
+                @can('view-signed-documents')
+                     <a href="{{ route('signed.index') }}" class="list-group-item list-group-item-action {{ request()->routeIs('signatures.signed.*') ? 'active' : '' }}">
+                        <i class="fas fa-check-circle fa-fw me-3"></i><span>Documentos Firmados</span>
+                     </a>
+                @endcan
             </div>
         </div>
 

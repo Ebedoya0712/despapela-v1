@@ -3,8 +3,12 @@
         <div class="d-flex justify-content-between align-items-center">
             <span>Definir Campos para: <span class="fw-bold">{{ $document->original_filename }}</span></span>
             <div>
+                <button id="signAsTechnicianBtn" class="btn btn-sm btn-outline-info">
+                    <i class="fas fa-pencil-alt me-1"></i> Firmar como Técnico
+                </button>
+
                 <a href="{{ route('tecnico.documents.previewPdf', $document->id) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
-                    <i class="fas fa-file-pdf me-1"></i> Generar PDF
+                    <i class="fas fa-file-pdf me-1"></i> Previsualizar PDF
                 </a>
                 <button id="saveFieldsBtn" class="btn btn-sm btn-primary"><i class="fas fa-save me-1"></i> Guardar Campos</button>
                 <a href="{{ route('tecnico.documents.index') }}" class="btn btn-sm btn-secondary"><i class="fas fa-arrow-left me-1"></i> Volver</a>
@@ -50,11 +54,15 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            // (Todo el código de estilos, configuración y funciones como renderPage, etc., sigue igual)
+            // ...
+            
             // --- ESTILOS CSS ---
             const styles = `
                 .field-box {
-                    position: absolute; border: 2px dashed #0d6efd; background-color: rgba(255, 255, 0, 0.2);
+                    position: absolute; border: 2px dashed #0d6efd; background-color: rgba(13, 110, 253, 0.2);
                     cursor: move; z-index: 10; display: flex; align-items: center; justify-content: center; overflow: hidden;
+                    user-select: none;
                 }
                 .field-box img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
                 .field-box.selected { border-style: solid; border-color: #ffc107; background-color: rgba(255, 193, 7, 0.3); }
@@ -64,14 +72,10 @@
                     line-height: 18px; font-size: 14px; font-weight: bold; cursor: pointer; z-index: 12; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
                 }
                 .field-box.selected .delete-btn { display: flex; }
-                .field-box-input {
-                    width: 100%; height: 100%; border: none; background-color: transparent; text-align: center;
-                    font-family: Arial, sans-serif; font-size: 14px; padding: 0 5px; color: #000;
-                }
-                .field-box-input:focus { outline: none; box-shadow: 0 0 5px rgba(13, 110, 253, 0.5); }
+                .field-placeholder { color: #6c757d; font-style: italic; font-size: 12px; }
                 .field-label {
                     position: absolute; top: -22px; left: -2px; background-color: #0d6efd; color: white; padding: 2px 5px;
-                    font-size: 10px; border-radius: 3px; white-space: nowrap; user-select: none;
+                    font-size: 10px; border-radius: 3px; white-space: nowrap;
                 }
                 .resizer { width: 10px; height: 10px; background: white; border: 1px solid #0d6efd; position: absolute; z-index: 11; }
                 .resizer.se { cursor: se-resize; right: -5px; bottom: -5px; }
@@ -103,6 +107,64 @@
                 renderFieldsList();
             });
 
+            // --- EVENTOS DE BOTONES Y ACCIONES ---
+
+            // 👇 PASO 2: AÑADIMOS LA LÓGICA PARA EL NUEVO BOTÓN 👇
+            document.getElementById('signAsTechnicianBtn').addEventListener('click', function() {
+                openSignaturePadModal().then(signatureDataUrl => {
+                    if (signatureDataUrl) {
+                        // Creamos un "evento" falso para colocar la firma en una posición por defecto (50,50)
+                        const defaultPositionEvent = { offsetX: 50, offsetY: 50 };
+                        createField({ name: 'FIRMA (Técnico)', type: 'signature' }, defaultPositionEvent, signatureDataUrl);
+                    }
+                });
+            });
+
+            // El resto de los eventos (guardar, click en el contenedor, paginación)
+            fieldsContainer.addEventListener('click', function(e) {
+                if (e.target === fieldsContainer) {
+                    if (selectedFieldId) {
+                        selectedFieldId = null;
+                        drawFieldsForPage(pageNum);
+                    } else {
+                        openCreateFieldModal(e);
+                    }
+                }
+            });
+
+            document.getElementById('saveFieldsBtn').addEventListener('click', function() {
+                const saveData = fields.map(f => ({
+                    name: f.name, type: f.type, page: f.page,
+                    x: f.x, y: f.y, width: f.width, height: f.height,
+                    value: f.value || null
+                }));
+                fetch("{{ route('tecnico.documents.saveFields', $document->id) }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+                    body: JSON.stringify({ fields: saveData })
+                })
+                .then(response => {
+                    if (!response.ok) { return response.json().then(err => { throw err; }); }
+                    return response.json();
+                })
+                .then(data => {
+                    if(data.success) { 
+                        Swal.fire('¡Guardado!', data.message || 'Los campos se han guardado con éxito.', 'success');
+                    } 
+                })
+                .catch(error => {
+                    let errorMessage = 'Ocurrió un error inesperado.';
+                    if (error.message) { errorMessage = error.message; }
+                    if (error.errors) { errorMessage = Object.values(error.errors).join('\n'); }
+                    Swal.fire('Error', errorMessage, 'error');
+                });
+            });
+            
+            document.getElementById('prev-page').addEventListener('click', () => { if (pageNum > 1) { pageNum--; renderPage(pageNum); } });
+            document.getElementById('next-page').addEventListener('click', () => { if (pdfDoc && pdfDoc.numPages && pageNum < pdfDoc.numPages) { pageNum++; renderPage(pageNum); } });
+            
+
+            // --- FUNCIONES AUXILIARES (renderPage, drawFieldsForPage, etc.) ---
             function renderPage(num) {
                 if (!pdfDoc) return;
                 pdfDoc.getPage(num).then(page => {
@@ -137,17 +199,21 @@
                     fieldDiv.appendChild(label);
 
                     if (field.type === 'signature') {
-                        const img = document.createElement('img');
-                        img.src = field.value || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
-                        fieldDiv.appendChild(img);
+                        if (field.value) {
+                            const img = document.createElement('img');
+                            img.src = field.value;
+                            fieldDiv.appendChild(img);
+                        } else {
+                            const placeholder = document.createElement('span');
+                            placeholder.className = 'field-placeholder';
+                            placeholder.textContent = 'Espacio para firma del trabajador';
+                            fieldDiv.appendChild(placeholder);
+                        }
                     } else {
-                        const input = document.createElement('input');
-                        input.type = 'text';
-                        input.className = 'field-box-input';
-                        input.placeholder = `Escribe: ${field.name}`;
-                        input.value = field.value || '';
-                        input.addEventListener('input', (e) => { field.value = e.target.value; });
-                        fieldDiv.appendChild(input);
+                        const placeholder = document.createElement('span');
+                        placeholder.className = 'field-placeholder';
+                        placeholder.textContent = `Campo: ${field.name}`;
+                        fieldDiv.appendChild(placeholder);
                     }
                     
                     const deleteBtn = document.createElement('button');
@@ -183,36 +249,50 @@
                     list.appendChild(item);
                 });
             }
-
-            fieldsContainer.addEventListener('click', function(e) {
-                if (e.target === fieldsContainer) {
-                    if (selectedFieldId) {
-                        selectedFieldId = null;
-                        drawFieldsForPage(pageNum);
-                    } else {
-                        openCreateFieldModal(e);
-                    }
-                }
-            });
             
             function openCreateFieldModal(e) {
-                const tagOptions = tags.map(tag => `<option value="${tag.name}">${tag.name}</option>`).join('');
-                Swal.fire({
-                    title: 'Añadir Nuevo Campo',
-                    html: `<select id="swal-tag-name" class="swal2-select"><option value="" disabled selected>-- Elige un campo --</option>${tagOptions}</select>`,
-                    preConfirm: () => document.getElementById('swal-tag-name').value || Swal.showValidationMessage('Debes seleccionar un campo')
-                }).then(result => {
-                    if (!result.isConfirmed || !result.value) return;
-                    const tagName = result.value;
-                    const fieldType = (tagName === 'CAMPO DE FIRMA DIBUJADO') ? 'signature' : 'text';
-                    const fieldData = { name: tagName, type: fieldType };
-                    if (fieldType === 'signature') {
-                        openSignatureModal().then(signatureDataUrl => {
-                            if (signatureDataUrl) createField(fieldData, e, signatureDataUrl);
-                        });
-                    } else {
-                        createField(fieldData, e);
+    const tagOptions = tags.map(tag => `<option value="${tag.name}">${tag.name}</option>`).join('');
+    Swal.fire({
+        title: 'Añadir Nuevo Campo',
+        html: `<select id="swal-tag-name" class="swal2-select"><option value="" disabled selected>-- Elige un campo --</option>${tagOptions}</select>`,
+        preConfirm: () => document.getElementById('swal-tag-name').value || Swal.showValidationMessage('Debes seleccionar un campo')
+    }).then(result => {
+        if (!result.isConfirmed || !result.value) return;
+        const tagName = result.value;
+        
+        // 👇 --- CORRECCIÓN DEFINITIVA AQUÍ --- 👇
+        // Ahora busca el nombre exacto de tu base de datos
+        if (tagName === 'CAMPO DE FIRMA DIBUJADO') {
+            showSignatureTypeModal().then(choice => {
+                if (choice === 'worker') {
+                    createField({ name: 'CAMPO DE FIRMA', type: 'signature' }, e, null);
+                } else if (choice === 'technician') {
+                    openSignaturePadModal().then(signatureDataUrl => {
+                        if (signatureDataUrl) createField({ name: 'FIRMA (Técnico)', type: 'signature' }, e, signatureDataUrl);
+                    });
+                }
+            });
+        } else {
+            createField({ name: tagName, type: 'text' }, e);
+        }
+    });
+}
+
+            function showSignatureTypeModal() {
+                return Swal.fire({
+                    title: 'Tipo de Campo de Firma',
+                    text: '¿Para quién es este campo de firma?',
+                    icon: 'question',
+                    showDenyButton: true,
+                    confirmButtonText: 'Para el Trabajador',
+                    denyButtonText: 'Para mí (Técnico)',
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        return 'worker';
+                    } else if (result.isDenied) {
+                        return 'technician';
                     }
+                    return null;
                 });
             }
 
@@ -233,9 +313,9 @@
                 drawFieldsForPage(pageNum);
             }
 
-            function openSignatureModal() {
+            function openSignaturePadModal() {
                 return Swal.fire({
-                    title: 'Añadir Firma',
+                    title: 'Añadir Mi Firma (Técnico)',
                     html: `
                         <div style="width: 100%; height: 250px;">
                             <canvas id="signature-canvas" style="border: 1px solid black; width: 100%; height: 100%;"></canvas>
@@ -268,8 +348,7 @@
                     }
                 }).then(result => result.isConfirmed ? result.value : null);
             }
-
-            // <-- CÓDIGO COMPLETO RESTAURADO -->
+            
             function makeResizableAndDraggable(element, field) {
                 // Lógica para seleccionar y mover
                 element.addEventListener('mousedown', function(e) {
@@ -279,9 +358,7 @@
                         e.stopPropagation(); 
                         return;
                     }
-                    if (e.target.tagName === 'INPUT' || e.target.classList.contains('resizer') || e.target.classList.contains('delete-btn')) {
-                        return;
-                    }
+                    if (e.target.classList.contains('resizer') || e.target.classList.contains('delete-btn')) return;
                     e.preventDefault();
                     let prevX = e.clientX; let prevY = e.clientY;
                     function mousemove(e) {
@@ -298,7 +375,6 @@
                     window.addEventListener('mousemove', mousemove);
                     window.addEventListener('mouseup', mouseup);
                 });
-
                 // Lógica para redimensionar
                 const resizer = document.createElement('div');
                 resizer.className = 'resizer se';
@@ -322,39 +398,7 @@
                     window.addEventListener('mouseup', mouseup);
                 });
             }
-
-            document.getElementById('saveFieldsBtn').addEventListener('click', function() {
-                 const saveData = fields.map(f => ({
-                    name: f.name, type: f.type, page: f.page,
-                    x: f.x, y: f.y, width: f.width, height: f.height,
-                    value: f.value || null
-                }));
-                fetch("{{ route('tecnico.documents.saveFields', $document->id) }}", {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'), 'Accept': 'application/json' },
-                    body: JSON.stringify({ fields: saveData })
-                })
-                .then(response => {
-                    if (response.redirected) { throw new Error('Tu sesión ha expirado. Por favor, recarga la página.'); }
-                    if (!response.ok) { return response.json().then(err => { throw err; }); }
-                    return response.json();
-                })
-                .then(data => {
-                    if(data.success) { 
-                        Swal.fire('¡Guardado!', data.success, 'success');
-                    } 
-                })
-                .catch(error => {
-                    let errorMessage = 'Ocurrió un error inesperado.';
-                    if (error.message) { errorMessage = error.message; }
-                    if (error.errors) { errorMessage = Object.values(error.errors).join('\n'); }
-                    Swal.fire('Error', errorMessage, 'error');
-                });
-            });
-            
-            document.getElementById('prev-page').addEventListener('click', () => { if (pageNum > 1) { pageNum--; renderPage(pageNum); } });
-            document.getElementById('next-page').addEventListener('click', () => { if (pdfDoc && pageNum < pdfDoc.numPages) { pageNum++; renderPage(pageNum); } });
         });
     </script>
-@endpush
+    @endpush
 </x-app-layout>
