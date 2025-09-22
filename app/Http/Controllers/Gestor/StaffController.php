@@ -53,6 +53,7 @@ class StaffController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role_id' => $role->id,
+            'is_active' => false,
         ]);
 
         // Asignamos el nuevo usuario a la empresa actual
@@ -61,6 +62,17 @@ class StaffController extends Controller
         return redirect()->route('gestor.companies.staff.index', $company->id)
                         ->with('success', 'Usuario ' . $request->role . ' creado y asignado con éxito.');
     }
+
+
+    public function toggleStatus(Company $company, User $staff)
+{
+    // Simplemente invertimos el estado actual
+    $staff->update(['is_active' => !$staff->is_active]);
+
+    $status = $staff->is_active ? 'activado' : 'desactivado';
+
+    return back()->with('success', "Usuario {$staff->name} ha sido {$status}.");
+}
 
     public function edit(Company $company, User $staff)
     {

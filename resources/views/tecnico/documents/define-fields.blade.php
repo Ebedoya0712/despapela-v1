@@ -3,13 +3,6 @@
         <div class="d-flex justify-content-between align-items-center">
             <span>Definir Campos para: <span class="fw-bold">{{ $document->original_filename }}</span></span>
             <div>
-                <button id="signAsTechnicianBtn" class="btn btn-sm btn-outline-info">
-                    <i class="fas fa-pencil-alt me-1"></i> Firmar como Técnico
-                </button>
-
-                <a href="{{ route('tecnico.documents.previewPdf', $document->id) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
-                    <i class="fas fa-file-pdf me-1"></i> Previsualizar PDF
-                </a>
                 <button id="saveFieldsBtn" class="btn btn-sm btn-primary"><i class="fas fa-save me-1"></i> Guardar Campos</button>
                 <a href="{{ route('tecnico.documents.index') }}" class="btn btn-sm btn-secondary"><i class="fas fa-arrow-left me-1"></i> Volver</a>
             </div>
@@ -54,9 +47,6 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // (Todo el código de estilos, configuración y funciones como renderPage, etc., sigue igual)
-            // ...
-            
             // --- ESTILOS CSS ---
             const styles = `
                 .field-box {
@@ -109,18 +99,8 @@
 
             // --- EVENTOS DE BOTONES Y ACCIONES ---
 
-            // 👇 PASO 2: AÑADIMOS LA LÓGICA PARA EL NUEVO BOTÓN 👇
-            document.getElementById('signAsTechnicianBtn').addEventListener('click', function() {
-                openSignaturePadModal().then(signatureDataUrl => {
-                    if (signatureDataUrl) {
-                        // Creamos un "evento" falso para colocar la firma en una posición por defecto (50,50)
-                        const defaultPositionEvent = { offsetX: 50, offsetY: 50 };
-                        createField({ name: 'FIRMA (Técnico)', type: 'signature' }, defaultPositionEvent, signatureDataUrl);
-                    }
-                });
-            });
+            // Lógica para el botón "Firmar como técnico" eliminada
 
-            // El resto de los eventos (guardar, click en el contenedor, paginación)
             fieldsContainer.addEventListener('click', function(e) {
                 if (e.target === fieldsContainer) {
                     if (selectedFieldId) {
@@ -149,7 +129,7 @@
                 })
                 .then(data => {
                     if(data.success) { 
-                        Swal.fire('¡Guardado!', data.message || 'Los campos se han guardado con éxito.', 'success');
+                        Swal.fire('¡Guardado!', 'Los campos se han guardado con éxito.', 'success');
                     } 
                 })
                 .catch(error => {
@@ -251,32 +231,30 @@
             }
             
             function openCreateFieldModal(e) {
-    const tagOptions = tags.map(tag => `<option value="${tag.name}">${tag.name}</option>`).join('');
-    Swal.fire({
-        title: 'Añadir Nuevo Campo',
-        html: `<select id="swal-tag-name" class="swal2-select"><option value="" disabled selected>-- Elige un campo --</option>${tagOptions}</select>`,
-        preConfirm: () => document.getElementById('swal-tag-name').value || Swal.showValidationMessage('Debes seleccionar un campo')
-    }).then(result => {
-        if (!result.isConfirmed || !result.value) return;
-        const tagName = result.value;
-        
-        // 👇 --- CORRECCIÓN DEFINITIVA AQUÍ --- 👇
-        // Ahora busca el nombre exacto de tu base de datos
-        if (tagName === 'CAMPO DE FIRMA DIBUJADO') {
-            showSignatureTypeModal().then(choice => {
-                if (choice === 'worker') {
-                    createField({ name: 'CAMPO DE FIRMA', type: 'signature' }, e, null);
-                } else if (choice === 'technician') {
-                    openSignaturePadModal().then(signatureDataUrl => {
-                        if (signatureDataUrl) createField({ name: 'FIRMA (Técnico)', type: 'signature' }, e, signatureDataUrl);
-                    });
-                }
-            });
-        } else {
-            createField({ name: tagName, type: 'text' }, e);
-        }
-    });
-}
+                const tagOptions = tags.map(tag => `<option value="${tag.name}">${tag.name}</option>`).join('');
+                Swal.fire({
+                    title: 'Añadir Nuevo Campo',
+                    html: `<select id="swal-tag-name" class="swal2-select"><option value="" disabled selected>-- Elige un campo --</option>${tagOptions}</select>`,
+                    preConfirm: () => document.getElementById('swal-tag-name').value || Swal.showValidationMessage('Debes seleccionar un campo')
+                }).then(result => {
+                    if (!result.isConfirmed || !result.value) return;
+                    const tagName = result.value;
+                    
+                    if (tagName === 'CAMPO DE FIRMA DIBUJADO') {
+                        showSignatureTypeModal().then(choice => {
+                            if (choice === 'worker') {
+                                createField({ name: 'CAMPO DE FIRMA', type: 'signature' }, e, null);
+                            } else if (choice === 'technician') {
+                                openSignaturePadModal().then(signatureDataUrl => {
+                                    if (signatureDataUrl) createField({ name: 'FIRMA (Técnico)', type: 'signature' }, e, signatureDataUrl);
+                                });
+                            }
+                        });
+                    } else {
+                        createField({ name: tagName, type: 'text' }, e);
+                    }
+                });
+            }
 
             function showSignatureTypeModal() {
                 return Swal.fire({

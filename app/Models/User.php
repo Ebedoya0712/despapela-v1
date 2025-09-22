@@ -21,6 +21,7 @@ class User extends Authenticatable
     'email',
     'password',
     'role_id',
+    'is_active',
     'dni',             // <-- Añadir
     'phone',           // <-- Añadir
     'bank_account',    // <-- Añadir

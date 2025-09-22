@@ -3,8 +3,6 @@
         {{ __('Gestionar Usuarios de la Plataforma') }}
     </x-slot>
 
-    {{-- Eliminamos las alertas de Bootstrap de aquí. Ahora las manejará SweetAlert2. --}}
-
     <div class="card border-0 shadow-sm rounded-3">
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-4">
@@ -22,7 +20,7 @@
                             <th scope="col">Nombre</th>
                             <th scope="col">Email</th>
                             <th scope="col">Rol</th>
-                            <th scope="col">Fecha de Registro</th>
+                            <th scope="col" class="text-center">Estado</th> <th scope="col">Fecha de Registro</th>
                             <th scope="col">Acciones</th>
                         </tr>
                     </thead>
@@ -34,21 +32,32 @@
                                 <td>{{ $user->email }}</td>
                                 <td>
                                     @if ($user->role)
-                                        @if ($user->role->name === 'Administrador')
-                                            <span class="badge bg-primary">{{ $user->role->name }}</span>
-                                        @elseif ($user->role->name === 'Gestor')
-                                            <span class="badge bg-success">{{ $user->role->name }}</span>
-                                        @elseif ($user->role->name === 'Técnico')
-                                            <span class="badge bg-info text-dark">{{ $user->role->name }}</span>
-                                        @else
-                                            <span class="badge bg-secondary">{{ $user->role->name }}</span>
+                                        @if ($user->role->name === 'Administrador') <span class="badge bg-primary">{{ $user->role->name }}</span>
+                                        @elseif ($user->role->name === 'Gestor') <span class="badge bg-success">{{ $user->role->name }}</span>
+                                        @elseif ($user->role->name === 'Técnico') <span class="badge bg-info text-dark">{{ $user->role->name }}</span>
+                                        @else <span class="badge bg-secondary">{{ $user->role->name }}</span>
                                         @endif
                                     @else
                                         <span class="badge bg-danger">Sin Rol</span>
                                     @endif
                                 </td>
+                                <td class="text-center">
+                                    @if($user->is_active)
+                                        <span class="badge bg-success">Activo</span>
+                                    @else
+                                        <span class="badge bg-danger">Inactivo</span>
+                                    @endif
+                                </td>
                                 <td>{{ $user->created_at->format('d/m/Y') }}</td>
                                 <td class="text-nowrap">
+                                    <form action="{{ route('admin.users.toggleStatus', $user->id) }}" method="POST" class="d-inline">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary" title="{{ $user->is_active ? 'Desactivar' : 'Activar' }}">
+                                            <i class="fas {{ $user->is_active ? 'fa-user-slash' : 'fa-user-check' }}"></i>
+                                        </button>
+                                    </form>
+
                                     @if ($user->role?->name === 'Gestor')
                                         <a href="{{ route('admin.users.assignCompanyForm', $user->id) }}" class="btn btn-sm btn-outline-info" title="Asignar Empresa"><i class="fas fa-building"></i></a>
                                     @endif
@@ -64,7 +73,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center">No se encontraron usuarios.</td>
+                                <td colspan="7" class="text-center">No se encontraron usuarios.</td>
                             </tr>
                         @endforelse
                     </tbody>

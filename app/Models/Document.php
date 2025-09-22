@@ -20,7 +20,9 @@ class Document extends Model
         'expires_at',
     ];
 
-    
+    protected $casts = [
+    'expires_at' => 'datetime', // <-- Añadir
+    ];
 
     public function company()
     {

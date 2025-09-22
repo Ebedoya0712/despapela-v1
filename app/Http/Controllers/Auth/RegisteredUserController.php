@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Models\Role;
+use App\Models\Role; // Asegúrate de que el modelo Role está importado
 use App\Providers\RouteServiceProvider;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -30,32 +30,38 @@ class RegisteredUserController extends Controller
      * @throws \Illuminate\Validation\ValidationException
      */
     public function store(Request $request): RedirectResponse
-{
-    $request->validate([
-        'name' => ['required', 'string', 'max:255'],
-        'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
-        'password' => ['required', 'confirmed', Rules\Password::defaults()],
-    ]);
+    {
+        // 1. Validamos todos los campos del formulario de registro
+        $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'dni' => ['required', 'string', 'max:20'],
+            'phone' => ['required', 'string', 'max:20'],
+            'bank_account' => ['required', 'string', 'max:50'],
+            'address' => ['required', 'string', 'max:500'],
+        ]);
 
-    // --- INICIO DE LA MODIFICACIÓN ---
+        // 2. Buscamos el rol "Gestor" para asignarlo al nuevo usuario
+        $gestorRole = Role::where('name', 'Gestor')->firstOrFail();
 
-    // 1. Busca el rol 'Gestor' en la base de datos.
-    $gestorRole = Role::where('name', 'Gestor')->firstOrFail();
+        // 3. Creamos el usuario con todos sus datos
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'dni' => $request->dni,
+            'phone' => $request->phone,
+            'bank_account' => $request->bank_account,
+            'address' => $request->address,
+            'role_id' => $gestorRole->id, // Asignamos el rol de Gestor
+            'is_active' => true,         // El Gestor se crea como ACTIVO por defecto
+        ]);
 
-    // 2. Crea el usuario y asígnale el role_id encontrado.
-    $user = User::create([
-        'name' => $request->name,
-        'email' => $request->email,
-        'password' => Hash::make($request->password),
-        'role_id' => $gestorRole->id, // <-- LÍNEA CLAVE AÑADIDA
-    ]);
+        event(new Registered($user));
 
-    // --- FIN DE LA MODIFICACIÓN ---
+        Auth::login($user);
 
-    event(new Registered($user));
-
-    Auth::login($user);
-
-    return redirect(RouteServiceProvider::HOME);
+        return redirect(RouteServiceProvider::HOME);
     }
 }

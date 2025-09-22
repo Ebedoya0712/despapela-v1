@@ -26,7 +26,10 @@
                                     {{-- Este es el botón que llama a la ruta 'signed.view' --}}
                                     <a href="{{ route('signed.view', $signature->id) }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Ver PDF Firmado">
                                         <i class="fas fa-eye"></i> Ver
-                                    </a>    
+                                    </a>
+                                    <a href="{{ route('signed.download', $signature->id) }}" class="btn btn-sm btn-outline-success" title="Descargar PDF Firmado">
+                                        <i class="fas fa-download"></i> Descargar
+                                    </a>   
                                 </td>
                             </tr>
                         @empty

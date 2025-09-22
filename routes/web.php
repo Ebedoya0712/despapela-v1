@@ -10,6 +10,7 @@ use App\Http\Controllers\SignatureController;
 use App\Http\Controllers\Tecnico\DocumentController as TecnicoDocumentController;
 use App\Http\Controllers\Tecnico\CompanyController as TecnicoCompanyController;
 use App\Http\Controllers\Tecnico\AssignmentController;
+use App\Http\Controllers\DashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -25,14 +26,15 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::get('/archived-documents', [App\Http\Controllers\ArchivedDocumentController::class, '__invoke'])->name('documents.archived');
 });
 
 // --- Rutas para Firmas ---
@@ -50,12 +52,14 @@ Route::middleware(['auth', 'can:manage-platform-users'])->prefix('admin')->name(
     Route::resource('companies', AdminCompanyController::class);
     Route::get('users/{user}/assign-company', [UserController::class, 'assignCompanyForm'])->name('users.assignCompanyForm');
     Route::post('users/{user}/assign-company', [UserController::class, 'syncCompanies'])->name('users.syncCompanies');
+    Route::patch('users/{user}/toggle-status', [UserController::class, 'toggleStatus'])->name('users.toggleStatus');
 });
 
 // --- Rutas del GESTOR ---
 Route::middleware(['auth', 'can:manage-technicians'])->prefix('gestor')->name('gestor.')->group(function () {
     Route::get('companies', [Gestorcontroller::class, 'index'])->name('companies.index');
     Route::resource('companies.staff', GestorStaffController::class);
+    Route::patch('companies/{company}/staff/{staff}/toggle-status', [GestorStaffController::class, 'toggleStatus'])->name('companies.staff.toggleStatus');
 });
 
 // --- Rutas del TÉCNICO ---
@@ -89,6 +93,7 @@ Route::middleware(['auth', 'can:manage-documents'])->prefix('tecnico')->name('te
 Route::middleware('can:view-signed-documents')->prefix('signed')->name('signed.')->group(function () {
     Route::get('/', [SignatureController::class, 'signedIndex'])->name('index');
     Route::get('/{documentSignature}/view', [SignatureController::class, 'viewSignedPdf'])->name('view');
+    Route::get('/{documentSignature}/download', [SignatureController::class, 'downloadSignedPdf'])->name('download');
     Route::post('/{document}/generate-link', [SignatureController::class, 'regenerateLink'])->name('generateLink');
 });
 

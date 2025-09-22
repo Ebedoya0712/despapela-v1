@@ -14,17 +14,15 @@
                 @csrf
                 <div class="row">
                     {{-- Selector de Empresa --}}
-                    <div class="col-md-6 mb-3">
-                        <label for="company_id" class="form-label">¿A qué empresa pertenece este documento?</label>
+                    <div class="col-md-4 mb-3">
+                        <label for="company_id" class="form-label">Empresa</label>
                         <select class="form-select @error('company_id') is-invalid @enderror" id="company_id" name="company_id" required>
-                            <option value="" disabled selected>Selecciona una empresa...</option>
-                            @forelse ($companies as $company)
+                            <option value="" disabled selected>Selecciona...</option>
+                            @foreach ($companies as $company)
                                 <option value="{{ $company->id }}" {{ old('company_id') == $company->id ? 'selected' : '' }}>
                                     {{ $company->name }}
                                 </option>
-                            @empty
-                                <option value="" disabled>No tienes empresas asignadas.</option>
-                            @endforelse
+                            @endforeach
                         </select>
                         @error('company_id')
                             <div class="invalid-feedback">{{ $message }}</div>
@@ -32,12 +30,26 @@
                     </div>
 
                     {{-- Selector de Archivo --}}
-                    <div class="col-md-6 mb-3">
-                        <label for="document_file" class="form-label">Selecciona el archivo PDF</label>
+                    <div class="col-md-4 mb-3">
+                        <label for="document_file" class="form-label">Archivo PDF</label>
                         <input class="form-control @error('document_file') is-invalid @enderror" type="file" id="document_file" name="document_file" required accept=".pdf">
-                         @error('document_file')
+                        @error('document_file')
                             <div class="invalid-feedback">{{ $message }}</div>
-                         @enderror
+                        @enderror
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label for="expiration_period" class="form-label">Caducidad (desde la firma)</label>
+                        <select class="form-select @error('expiration_period') is-invalid @enderror" id="expiration_period" name="expiration_period" required>
+                            <option value="1_month" selected>1 Mes</option>
+                            <option value="2_months">2 Meses</option>
+                            <option value="6_months">6 Meses</option>
+                            <option value="1_year">1 Año</option>
+                            <option value="2_years">2 Años</option>
+                        </select>
+                        @error('expiration_period')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                     </div>
                 </div>
 
@@ -49,4 +61,3 @@
         </div>
     </div>
 </x-app-layout>
-

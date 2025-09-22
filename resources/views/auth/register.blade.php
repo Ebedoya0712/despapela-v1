@@ -9,14 +9,14 @@
     <style>
         body { background-color: #f0f2f5; }
         .card-header-despapela {
-            background-color: #006A80; /* Azul de tu marca */
+            background-color: #006A80;
             color: white;
             padding: 2rem;
             border-top-left-radius: 1rem;
             border-top-right-radius: 1rem;
         }
         .btn-despapela-green {
-            background-color: #9BCF35; /* Verde de tu marca */
+            background-color: #9BCF35;
             border-color: #9BCF35;
             color: white;
         }
@@ -25,18 +25,13 @@
             border-color: #8ab82e;
             color: white;
         }
-        .link-despapela-blue {
-            color: #006A80;
-            text-decoration: none;
-        }
-        .link-despapela-blue:hover {
-            text-decoration: underline;
-        }
+        .link-despapela-blue { color: #006A80; text-decoration: none; }
+        .link-despapela-blue:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
     <section class="vh-100 d-flex justify-content-center align-items-center py-5">
-        <div class="col-12 col-md-8 col-lg-6 col-xl-5" style="max-width: 500px;">
+        <div class="col-12 col-md-8 col-lg-6 col-xl-5" style="max-width: 600px;">
             <div class="card shadow-lg border-0" style="border-radius: 1rem;">
                 
                 <div class="card-header card-header-despapela text-center">
@@ -45,53 +40,99 @@
                 </div>
 
                 <div class="card-body p-5">
-                    <p class="text-muted text-center mb-4">Regístrate para empezar a usar Despapela.</p>
-
                     <form method="POST" action="{{ route('register') }}">
                         @csrf
 
-                        <!-- Name con Ícono -->
-                        <div class="input-group mb-3">
-                            <span class="input-group-text"><i class="fas fa-user"></i></span>
-                            <div class="form-floating flex-grow-1">
-                                <input type="text" id="name" class="form-control" name="name" value="{{ old('name') }}" placeholder="Nombre" required autofocus autocomplete="name" />
-                                <label for="name">Nombre</label>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-user fa-fw"></i></span>
+                                    <div class="form-floating flex-grow-1">
+                                        <input type="text" id="name" class="form-control" name="name" value="{{ old('name') }}" placeholder="Nombre y Apellidos" required autofocus autocomplete="name" />
+                                        <label for="name">Nombre y Apellidos</label>
+                                    </div>
+                                </div>
+                                <x-input-error :messages="$errors->get('name')" class="mt-1 text-danger small text-start" />
                             </div>
-                        </div>
-                        <x-input-error :messages="$errors->get('name')" class="mt-n3 mb-3 text-danger small text-start" />
 
-                        <!-- Email con Ícono -->
-                        <div class="input-group mb-3">
-                            <span class="input-group-text"><i class="fas fa-envelope"></i></span>
-                            <div class="form-floating flex-grow-1">
-                                <input type="email" id="email" class="form-control" name="email" value="{{ old('email') }}" placeholder="Email" required autocomplete="username" />
-                                <label for="email">Email</label>
+                            <div class="col-md-6 mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-id-card fa-fw"></i></span>
+                                    <div class="form-floating flex-grow-1">
+                                        <input type="text" id="dni" class="form-control" name="dni" value="{{ old('dni') }}" placeholder="DNI" required />
+                                        <label for="dni">DNI</label>
+                                    </div>
+                                </div>
+                                <x-input-error :messages="$errors->get('dni')" class="mt-1 text-danger small text-start" />
                             </div>
-                        </div>
-                        <x-input-error :messages="$errors->get('email')" class="mt-n3 mb-3 text-danger small text-start" />
 
-                        <!-- Password con Ícono -->
-                        <div class="input-group mb-3">
-                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                            <div class="form-floating flex-grow-1">
-                                <input type="password" id="password" class="form-control" name="password" placeholder="Contraseña" required autocomplete="new-password" />
-                                <label for="password">Contraseña</label>
+                            <div class="col-md-6 mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-envelope fa-fw"></i></span>
+                                    <div class="form-floating flex-grow-1">
+                                        <input type="email" id="email" class="form-control" name="email" value="{{ old('email') }}" placeholder="Email" required autocomplete="username" />
+                                        <label for="email">Email</label>
+                                    </div>
+                                </div>
+                                <x-input-error :messages="$errors->get('email')" class="mt-1 text-danger small text-start" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-phone fa-fw"></i></span>
+                                    <div class="form-floating flex-grow-1">
+                                        <input type="tel" id="phone" class="form-control" name="phone" value="{{ old('phone') }}" placeholder="Teléfono" required />
+                                        <label for="phone">Teléfono</label>
+                                    </div>
+                                </div>
+                                <x-input-error :messages="$errors->get('phone')" class="mt-1 text-danger small text-start" />
+                            </div>
+                            
+                            <div class="col-12 mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-credit-card fa-fw"></i></span>
+                                    <div class="form-floating flex-grow-1">
+                                        <input type="text" id="bank_account" class="form-control" name="bank_account" value="{{ old('bank_account') }}" placeholder="Nº de Cuenta Bancaria" required />
+                                        <label for="bank_account">Nº de Cuenta Bancaria</label>
+                                    </div>
+                                </div>
+                                <x-input-error :messages="$errors->get('bank_account')" class="mt-1 text-danger small text-start" />
+                            </div>
+                            
+                            <div class="col-12 mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-map-marker-alt fa-fw"></i></span>
+                                    <div class="form-floating flex-grow-1">
+                                        <textarea id="address" class="form-control" name="address" placeholder="Dirección" required style="height: 100px">{{ old('address') }}</textarea>
+                                        <label for="address">Dirección</label>
+                                    </div>
+                                </div>
+                                <x-input-error :messages="$errors->get('address')" class="mt-1 text-danger small text-start" />
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock fa-fw"></i></span>
+                                    <div class="form-floating flex-grow-1">
+                                        <input type="password" id="password" class="form-control" name="password" placeholder="Contraseña" required autocomplete="new-password" />
+                                        <label for="password">Contraseña</label>
+                                    </div>
+                                </div>
+                                <x-input-error :messages="$errors->get('password')" class="mt-1 text-danger small text-start" />
+                            </div>
+                            
+                            <div class="col-md-6 mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock fa-fw"></i></span>
+                                    <div class="form-floating flex-grow-1">
+                                        <input type="password" id="password_confirmation" class="form-control" name="password_confirmation" placeholder="Confirmar Contraseña" required autocomplete="new-password" />
+                                        <label for="password_confirmation">Confirmar Contraseña</label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <x-input-error :messages="$errors->get('password')" class="mt-n3 mb-3 text-danger small text-start" />
                         
-                        <!-- Confirm Password con Ícono -->
-                        <div class="input-group mb-4">
-                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                            <div class="form-floating flex-grow-1">
-                                <input type="password" id="password_confirmation" class="form-control" name="password_confirmation" placeholder="Confirmar Contraseña" required autocomplete="new-password" />
-                                <label for="password_confirmation">Confirmar Contraseña</label>
-                            </div>
-                        </div>
-                        <x-input-error :messages="$errors->get('password_confirmation')" class="mt-n3 mb-3 text-danger small text-start" />
-                        
-                        <!-- Register Button -->
-                        <div class="d-grid gap-2">
+                        <div class="d-grid gap-2 mt-3">
                             <button class="btn btn-despapela-green btn-lg" type="submit">Registrarse</button>
                         </div>
                         

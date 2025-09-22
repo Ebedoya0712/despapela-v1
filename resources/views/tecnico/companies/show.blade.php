@@ -10,12 +10,8 @@
 
     <div class="card border-0 shadow-sm rounded-3">
         <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h5 class="card-title mb-0">Listado de Trabajadores</h5>
-                <a href="#" class="btn btn-sm btn-primary">
-                    <i class="fas fa-plus me-1"></i> Nuevo Trabajador
-                </a>
-            </div>
+            <h5 class="card-title mb-4">Listado de Trabajadores</h5>
+            
             <div class="table-responsive">
                 <table class="table table-hover table-striped" id="workersTable">
                     <thead class="table-light">
@@ -23,7 +19,6 @@
                             <th>#</th>
                             <th>Nombre</th>
                             <th>Email</th>
-                            <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -32,13 +27,10 @@
                                 <td>{{ $worker->id }}</td>
                                 <td>{{ $worker->name }}</td>
                                 <td>{{ $worker->email }}</td>
-                                <td>
-                                    <a href="#" class="btn btn-sm btn-outline-secondary" title="Editar"><i class="fas fa-edit"></i></a>
-                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="text-center text-muted">No hay trabajadores asignados a esta empresa.</td>
+                                <td colspan="3" class="text-center text-muted">No hay trabajadores asignados a esta empresa.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -57,4 +49,3 @@
     </script>
     @endpush
 </x-app-layout>
-

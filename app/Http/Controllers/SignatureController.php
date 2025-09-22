@@ -120,6 +120,95 @@ public function show(UniqueLink $uniqueLink)
         return view('signatures.signed-index', compact('signatures'));
     }
 
+
+    public function downloadSignedPdf(DocumentSignature $documentSignature)
+    {
+        $document = $documentSignature->document;
+        $worker = $documentSignature->signer;
+        $filePath = Storage::disk('documents')->path($document->storage_path);
+        
+        $pdf = new Fpdi();
+        
+        try {
+            define('PT_TO_MM', 25.4 / 72);
+            $pageCount = $pdf->setSourceFile($filePath);
+
+            for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
+                $templateId = $pdf->importPage($pageNo);
+                $size = $pdf->getTemplateSize($templateId);
+                
+                $orientation = ($size['width'] > $size['height']) ? 'L' : 'P';
+                $pdf->AddPage($orientation, [$size['width'], $size['height']]);
+                $pdf->useTemplate($templateId);
+
+                $fieldsForPage = $document->fields()->where('coordinates->page', $pageNo)->get();
+
+                foreach ($fieldsForPage as $field) {
+                    $coords = $field->coordinates;
+                    $scale = 1.5;
+                    
+                    $x_pt = $coords['x'] / $scale;
+                    $y_pt = $coords['y'] / $scale;
+                    $width_pt = $coords['width'] / $scale;
+                    $height_pt = $coords['height'] / $scale;
+
+                    $x_mm = $x_pt * PT_TO_MM;
+                    $y_mm = $y_pt * PT_TO_MM;
+                    $width_mm = $width_pt * PT_TO_MM;
+                    $height_mm = $height_pt * PT_TO_MM;
+                    
+                    $fieldValue = $field->value;
+                    switch (trim($field->name)) {
+                        case 'NOMBRE Y APELLIDOS': $fieldValue = $worker->name; break;
+                        case 'DNI': $fieldValue = $worker->dni; break;
+                        case 'EMAIL': $fieldValue = $worker->email; break;
+                        case 'TELÉFONO': $fieldValue = $worker->phone; break;
+                        case 'NÚMERO DE CUENTA BANCARIA': $fieldValue = $worker->bank_account; break;
+                        case 'DIRECCIÓN': $fieldValue = $worker->address; break;
+                    }
+
+                    if ($field->type === 'signature' && !empty($fieldValue)) {
+                        $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $fieldValue));
+                        $pdf->Image('@'.$imageData, $x_mm, $y_mm, $width_mm, $height_mm, 'PNG');
+                    } else if ($field->type === 'text') {
+                        $pdf->SetFont('helvetica', '', 9);
+                        $pdf->SetTextColor(0, 0, 0);
+                        $pdf->SetXY($x_mm, $y_mm);
+                        $pdf->MultiCell($width_mm, $height_mm, $fieldValue ?? '', 0, 'L');
+                    }
+                }
+                
+                if (isset($documentSignature->filled_data['page']) && $documentSignature->filled_data['page'] == $pageNo) {
+                    $coords = $documentSignature->filled_data;
+                    $signaturePath = Storage::disk('public')->path($documentSignature->signature_image_path);
+                    
+                    if (file_exists($signaturePath)) {
+                        $scale = 1.5;
+                        $x_pt = $coords['x'] / $scale;
+                        $y_pt = $coords['y'] / $scale;
+                        $width_pt = $coords['width'] / $scale;
+                        $height_pt = $coords['height'] / $scale;
+                        $x_mm = $x_pt * PT_TO_MM;
+                        $y_mm = $y_pt * PT_TO_MM;
+                        $width_mm = $width_pt * PT_TO_MM;
+                        $height_mm = $height_pt * PT_TO_MM;
+                        
+                        $pdf->Image($signaturePath, $x_mm, $y_mm, $width_mm, $height_mm, 'PNG');
+                    }
+                }
+            }
+            
+            // 👇 CAMBIO CLAVE: 'D' en lugar de 'I' para forzar la descarga 👇
+            $fileName = 'firmado-' . Str::slug($document->original_filename) . '.pdf';
+            return response($pdf->Output($fileName, 'D'), 200)
+                ->header('Content-Type', 'application/pdf');
+                
+        } catch (\Exception $e) {
+            \Log::error('Error al generar PDF para descarga: ' . $e->getMessage());
+            return back()->with('error', 'Error al procesar el PDF.');
+        }
+    }
+
     /**
      * Genera y muestra el PDF final con la firma estampada para visualización.
      */

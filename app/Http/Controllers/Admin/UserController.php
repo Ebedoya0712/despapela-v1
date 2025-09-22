@@ -48,9 +48,26 @@ class UserController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role_id' => $request->role_id,
+            'is_active' => false,
         ]);
 
         return redirect()->route('admin.users.index')->with('success', 'Usuario creado con éxito.');
+    }
+
+
+    public function toggleStatus(User $user)
+    {
+    // Protección para que el admin no se desactive a sí mismo
+    if (auth()->user()->id == $user->id) {
+        return back()->with('error', 'No puedes desactivar tu propia cuenta.');
+    }
+
+    // Invertimos el estado actual del usuario
+    $user->update(['is_active' => !$user->is_active]);
+
+    $status = $user->is_active ? 'activado' : 'desactivado';
+
+    return back()->with('success', "El usuario {$user->name} ha sido {$status}.");
     }
 
     /**
@@ -66,24 +83,31 @@ class UserController extends Controller
      * Actualiza un usuario existente en la base de datos.
      */
     public function update(Request $request, User $user)
-    {
-        $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class.',email,'.$user->id],
-            'role_id' => ['required', 'exists:roles,id'],
-            'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
-        ]);
+{
+    $request->validate([
+        'name' => ['required', 'string', 'max:255'],
+        'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class.',email,'.$user->id],
+        'role_id' => ['required', 'exists:roles,id'],
+        'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
+        
+        // --- NUEVAS REGLAS DE VALIDACIÓN ---
+        'dni' => ['nullable', 'string', 'max:20'],
+        'phone' => ['nullable', 'string', 'max:20'],
+        'address' => ['nullable', 'string', 'max:500'],
+        'is_active' => ['required', 'boolean'],
+    ]);
 
-        $userData = $request->only('name', 'email', 'role_id');
+    // --- RECOPILAMOS TODOS LOS DATOS A ACTUALIZAR ---
+    $userData = $request->only('name', 'email', 'role_id', 'dni', 'phone', 'address', 'is_active');
 
-        if ($request->filled('password')) {
-            $userData['password'] = Hash::make($request->password);
-        }
-
-        $user->update($userData);
-
-        return redirect()->route('admin.users.index')->with('success', 'Usuario actualizado con éxito.');
+    if ($request->filled('password')) {
+        $userData['password'] = Hash::make($request->password);
     }
+
+    $user->update($userData);
+
+    return redirect()->route('admin.users.index')->with('success', 'Usuario actualizado con éxito.');
+}
 
     /**
      * Elimina un usuario de la base de datos.
