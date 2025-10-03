@@ -44,6 +44,15 @@ return [
             'throw' => false,
         ],
 
+        'documents' => [
+            'driver' => 'local',
+            // Los archivos ahora se guardarán en: storage/app/public/documents
+            'root' => storage_path('app/public/documents'), 
+            // La URL pública ahora usará el enlace de 'storage'
+            'url' => env('APP_URL').'/storage/documents',
+            'visibility' => 'public',
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
