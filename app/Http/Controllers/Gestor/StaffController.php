@@ -49,11 +49,11 @@ class StaffController extends Controller
         $role = Role::where('name', $request->role)->firstOrFail();
 
         $user = User::create([
-            'name' => $request->name,
+            'name' => $request->name,   
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role_id' => $role->id,
-            'is_active' => false,
+            'is_active' => true,
         ]);
 
         // Asignamos el nuevo usuario a la empresa actual
