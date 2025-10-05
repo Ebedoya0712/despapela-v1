@@ -40,7 +40,7 @@
             <div class="card shadow-lg border-0" style="border-radius: 1rem;">
                 
                 <div class="card-header card-header-despapela text-center">
-                    <img src="/logo-blanco.png" alt="Logo Despapela" style="max-height: 60px;" class="mb-3">
+                    <img src="{{ asset('images/logo_despapela.png') }}" alt="Logo Despapela" style="max-height: 60px;" class="mb-3">
                     <h3 class="fw-bold mb-0">Bienvenido a Despapela</h3>
                 </div>
 

@@ -23,7 +23,7 @@ use App\Http\Controllers\DashboardController;
 
 // --- Rutas Públicas y de Autenticación Base ---
 Route::get('/', function () {
-    return view('welcome');
+    return to_route('login');
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
