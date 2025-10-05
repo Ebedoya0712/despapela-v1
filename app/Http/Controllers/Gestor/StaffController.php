@@ -9,6 +9,8 @@ use App\Models\Role;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
+use Illuminate\Support\Str; // Necesario para generar la contraseña
+use App\Notifications\NewStaffCredentials; // ¡Importamos la notificación!
 
 class StaffController extends Controller
 {
@@ -39,28 +41,55 @@ class StaffController extends Controller
      */
     public function store(Request $request, Company $company)
     {
+        // 1. Validaciones
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            // Hacemos que la contraseña sea opcional, pero si se provee, debe ser confirmada y cumplir reglas.
+            'password' => ['nullable', 'confirmed', Rules\Password::defaults()], 
             'role' => ['required', 'in:Técnico,Trabajador'],
         ]);
 
+        // 2. Lógica Condicional de Contraseña
         $role = Role::where('name', $request->role)->firstOrFail();
-
+        
+        // Verificamos si el gestor proporcionó una contraseña
+        if ($request->filled('password')) {
+            $rawPassword = $request->password;
+        } else {
+            // Si no proporcionó una, generamos una aleatoria
+            $rawPassword = Str::random(10); 
+        }
+        
+        // 3. Creación del Usuario
         $user = User::create([
-            'name' => $request->name,   
+            'name' => $request->name,
             'email' => $request->email,
-            'password' => Hash::make($request->password),
+            'password' => Hash::make($rawPassword), // Usamos la contraseña (ingresada o generada)
             'role_id' => $role->id,
-            'is_active' => true,
+            'is_active' => true, //  TAREA CUMPLIDA: Usuario activo por defecto
         ]);
 
-        // Asignamos el nuevo usuario a la empresa actual
+        // 4. Asignación a la Empresa
         $company->staff()->attach($user->id);
 
+        // 5. Envío de Email con la Contraseña y Recomendación
+        try {
+            //  TAREA CUMPLIDA: Enviamos la contraseña real (la generada o la ingresada por el gestor)
+            $user->notify(new NewStaffCredentials(
+                $user->email, 
+                $rawPassword, // Pasamos la contraseña en texto plano para el email
+                $role->name, 
+                $company->name
+            ));
+        } catch (\Exception $e) {
+            \Log::error("Fallo el envío de correo para el usuario ID {$user->id}: " . $e->getMessage());
+            return redirect()->route('gestor.companies.staff.index', $company->id)
+                             ->with('warning', 'Usuario creado y asignado. ¡ADVERTENCIA! Falló el envío del correo con la contraseña.');
+        }
+
         return redirect()->route('gestor.companies.staff.index', $company->id)
-                        ->with('success', 'Usuario ' . $request->role . ' creado y asignado con éxito.');
+                         ->with('success', "Usuario {$request->role} creado, asignado y notificado con sus credenciales.");
     }
 
 
@@ -87,7 +116,9 @@ class StaffController extends Controller
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class.',email,'.$staff->id],
-            'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
+            // Opcionalmente, puedes eliminar esta validación si ya no permites cambiar la contraseña en la edición.
+            // Si la dejas, asegúrate de que el formulario de edición tenga los campos.
+            'password' => ['nullable', 'confirmed', Rules\Password::defaults()], 
         ]);
 
         $userData = $request->only('name', 'email');
@@ -99,7 +130,7 @@ class StaffController extends Controller
         $staff->update($userData);
 
         return redirect()->route('gestor.companies.staff.index', $company->id)
-                        ->with('success', 'Usuario actualizado con éxito.');
+                            ->with('success', 'Usuario actualizado con éxito.');
     }
 
     public function destroy(Company $company, User $staff)
@@ -111,7 +142,7 @@ class StaffController extends Controller
         $staff->delete();
 
         return redirect()->route('gestor.companies.staff.index', $company->id)
-                        ->with('success', 'Usuario eliminado con éxito.');
+                            ->with('success', 'Usuario eliminado con éxito.');
     }
 
 }
