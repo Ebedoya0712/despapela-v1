@@ -23,6 +23,9 @@
                             <th>Empresa</th>
                             <th>Estado</th>
                             <th>Fecha de Subida</th>
+                            {{-- INICIO DEL CAMBIO --}}
+                            <th>Caduca el</th> 
+                            {{-- FIN DEL CAMBIO --}}
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -32,10 +35,25 @@
                                 <td>{{ $document->id }}</td>
                                 <td>{{ $document->original_filename }}</td>
                                 <td>{{ $document->company->name }}</td>
-                                <td><span class="badge bg-secondary">{{ ucfirst($document->status) }}</span></td>
+                                <td>
+                                    {{-- El estado del documento (Pendiente/Firmado) --}}
+                                    @php
+                                        $badgeClass = $document->status === 'pendiente' ? 'bg-warning text-dark' : 'bg-success';
+                                    @endphp
+                                    <span class="badge {{ $badgeClass }}">{{ ucfirst($document->status) }}</span>
+                                </td>
                                 <td>{{ $document->created_at->format('d/m/Y') }}</td>
+                                {{-- INICIO DEL CAMBIO --}}
+                                <td>
+                                    {{-- Muestra la fecha de expiración y comprueba si ya caducó --}}
+                                    @if ($document->expires_at->isPast())
+                                        <span class="badge bg-danger">Caducado ({{ $document->expires_at->format('d/m/Y') }})</span>
+                                    @else
+                                        <span class="badge bg-info">{{ $document->expires_at->format('d/m/Y') }}</span>
+                                    @endif
+                                </td>
+                                {{-- FIN DEL CAMBIO --}}
                                 <td class="text-nowrap">
-                                    {{-- INICIO DE LOS CAMBIOS --}}
                                     <a href="{{ route('tecnico.documents.edit', $document->id) }}" class="btn btn-sm btn-outline-primary" title="Editar / Definir Campos"><i class="fas fa-edit"></i></a>
                                     
                                     <form action="{{ route('tecnico.documents.destroy', $document->id) }}" method="POST" class="d-inline delete-form">
@@ -43,12 +61,11 @@
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar"><i class="fas fa-trash"></i></button>
                                     </form>
-                                    {{-- FIN DE LOS CAMBIOS --}}
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center">Aún no has subido ningún documento.</td>
+                                <td colspan="7" class="text-center">Aún no has subido ningún documento.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -103,4 +120,3 @@
     </script>
     @endpush
 </x-app-layout>
-
