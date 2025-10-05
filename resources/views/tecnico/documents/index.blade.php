@@ -3,8 +3,6 @@
         {{ __('Gestionar Documentos') }}
     </x-slot>
 
-    {{-- Eliminamos la alerta de Bootstrap de aquí. Ahora la manejará SweetAlert2. --}}
-
     <div class="card border-0 shadow-sm rounded-3">
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-4">
@@ -23,9 +21,7 @@
                             <th>Empresa</th>
                             <th>Estado</th>
                             <th>Fecha de Subida</th>
-                            {{-- INICIO DEL CAMBIO --}}
-                            <th>Caduca el</th> 
-                            {{-- FIN DEL CAMBIO --}}
+                            <th>Caduca el</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -33,33 +29,43 @@
                         @forelse ($documents as $document)
                             <tr>
                                 <td>{{ $document->id }}</td>
-                                <td>{{ $document->original_filename }}</td>
-                                <td>{{ $document->company->name }}</td>
+                                <td>{{ $document->original_filename ?? 'N/A' }}</td>
+                                <td>{{ $document->company->name ?? 'N/A' }}</td>
                                 <td>
-                                    {{-- El estado del documento (Pendiente/Firmado) --}}
                                     @php
-                                        $badgeClass = $document->status === 'pendiente' ? 'bg-warning text-dark' : 'bg-success';
+                                        $badgeClass = 'bg-secondary';
+                                        if ($document->status === 'pendiente') {
+                                            $badgeClass = 'bg-warning text-dark';
+                                        } elseif ($document->status === 'firmado') {
+                                            $badgeClass = 'bg-success';
+                                        }
                                     @endphp
-                                    <span class="badge {{ $badgeClass }}">{{ ucfirst($document->status) }}</span>
+                                    <span class="badge {{ $badgeClass }}">{{ ucfirst($document->status ?? 'desconocido') }}</span>
                                 </td>
-                                <td>{{ $document->created_at->format('d/m/Y') }}</td>
-                                {{-- INICIO DEL CAMBIO --}}
+                                <td>{{ $document->created_at->format('d/m/Y') ?? 'N/A' }}</td>
                                 <td>
-                                    {{-- Muestra la fecha de expiración y comprueba si ya caducó --}}
-                                    @if ($document->expires_at->isPast())
-                                        <span class="badge bg-danger">Caducado ({{ $document->expires_at->format('d/m/Y') }})</span>
+                                    {{-- VERIFICACIÓN DE expires_at --}}
+                                    @if($document->expires_at)
+                                        @if ($document->expires_at->isPast())
+                                            <span class="badge bg-danger">Caducado ({{ $document->expires_at->format('d/m/Y') }})</span>
+                                        @else
+                                            <span class="badge bg-info">{{ $document->expires_at->format('d/m/Y') }}</span>
+                                        @endif
                                     @else
-                                        <span class="badge bg-info">{{ $document->expires_at->format('d/m/Y') }}</span>
+                                        <span class="badge bg-secondary">Sin fecha</span>
                                     @endif
                                 </td>
-                                {{-- FIN DEL CAMBIO --}}
                                 <td class="text-nowrap">
-                                    <a href="{{ route('tecnico.documents.edit', $document->id) }}" class="btn btn-sm btn-outline-primary" title="Editar / Definir Campos"><i class="fas fa-edit"></i></a>
+                                    <a href="{{ route('tecnico.documents.edit', $document->id) }}" class="btn btn-sm btn-outline-primary" title="Editar / Definir Campos">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
                                     
                                     <form action="{{ route('tecnico.documents.destroy', $document->id) }}" method="POST" class="d-inline delete-form">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar"><i class="fas fa-trash"></i></button>
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
                                     </form>
                                 </td>
                             </tr>
@@ -78,7 +84,25 @@
     <script>
         $(document).ready(function() {
             $('#documentsTable').DataTable({
-                language: { url: 'https://cdn.datatables.net/plug-ins/1.12.1/i18n/es-ES.json' }
+                language: { 
+                    url: 'https://cdn.datatables.net/plug-ins/1.12.1/i18n/es-ES.json' 
+                },
+                // CONFIGURACIÓN PARA PREVENIR ERRORES
+                columnDefs: [
+                    {
+                        targets: '_all',
+                        defaultContent: '-', // Valor por defecto para celdas vacías
+                        render: function (data, type, row) {
+                            // Manejar datos nulos o indefinidos
+                            if (data === null || data === undefined || data === '') {
+                                return '-';
+                            }
+                            return data;
+                        }
+                    }
+                ],
+                responsive: true,
+                autoWidth: false
             });
 
             // --- LÓGICA DE SWEETALERT ---
