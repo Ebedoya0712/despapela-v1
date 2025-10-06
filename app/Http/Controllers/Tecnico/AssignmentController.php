@@ -10,6 +10,7 @@ use App\Mail\DocumentAssigned; // Importa la nueva clase Mailable
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail; // Importa la Facade de Mail
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class AssignmentController extends Controller
@@ -41,33 +42,42 @@ class AssignmentController extends Controller
     {
         $request->validate(['workers' => 'required|array']);
 
-        $technician = Auth::user(); // Obtenemos al técnico que está realizando la acción
+        $technician = Auth::user();
 
-        foreach ($request->workers as $workerId) {
-            // firstOrCreate se asegura de no crear duplicados
-            $linkCreated = UniqueLink::firstOrCreate(
-                [
-                    'document_id' => $document->id,
-                    'user_id' => $workerId,
-                ],
-                [
-                    'company_id' => $document->company_id,
-                    'token' => Str::random(40),
-                    'expires_at' => now()->addDays(30),
-                ]
-            );
+        try {
+            foreach ($request->workers as $workerId) {
+                // firstOrCreate se asegura de no crear duplicados y es transaccional
+                $linkCreated = UniqueLink::firstOrCreate(
+                    [
+                        'document_id' => $document->id,
+                        'user_id' => $workerId,
+                    ],
+                    [
+                        'company_id' => $document->company_id,
+                        'token' => Str::random(40),
+                        'expires_at' => now()->addDays(30),
+                    ]
+                );
 
-            // Si el enlace es nuevo (no existía antes), enviamos el correo.
-            // wasRecentlyCreated es una propiedad mágica de Eloquent.
-            if ($linkCreated->wasRecentlyCreated) {
-                $worker = User::find($workerId);
-                if ($worker) {
-                    Mail::to($worker->email)->send(new DocumentAssigned($document, $technician));
+                // Si el enlace es nuevo (no existía antes), intentamos enviar el correo.
+                if ($linkCreated->wasRecentlyCreated) {
+                    $worker = User::find($workerId);
+                    if ($worker) {
+                        // Uso de Mail::send para mejor manejo de errores de envío
+                        Mail::to($worker->email)->send(new DocumentAssigned($document, $technician));
+                    }
                 }
             }
-        }
 
-        return redirect()->route('tecnico.assignment.list')->with('success', 'Documento asignado y trabajadores notificados con éxito.');
+            return redirect()->route('tecnico.assignment.list')->with('success', 'Documento asignado y trabajadores notificados con éxito.');
+
+        } catch (\Exception $e) {
+            // 1. Registrar el error detallado en el log del servidor
+            Log::error('Error al asignar documento o enviar correo: ' . $e->getMessage() . ' en ' . $e->getFile() . ':' . $e->getLine());
+            
+            // 2. Devolver al usuario con un mensaje de error claro
+            return redirect()->route('tecnico.assignment.list')->with('error', 'Ocurrió un error al intentar asignar el documento. Por favor, verifica el log de errores.');
+        }
     }
 
     // El método regenerateLink y su ruta ya no son necesarios con este nuevo flujo.
