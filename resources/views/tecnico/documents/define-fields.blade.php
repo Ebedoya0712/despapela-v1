@@ -52,7 +52,7 @@
                 .field-box {
                     position: absolute; border: 2px dashed #0d6efd; background-color: rgba(13, 110, 253, 0.2);
                     cursor: move; z-index: 10; display: flex; align-items: center; justify-content: center; overflow: hidden;
-                    user-select: none;
+                    user-select: none; touch-action: none;
                 }
                 .field-box img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
                 .field-box.selected { border-style: solid; border-color: #ffc107; background-color: rgba(255, 193, 7, 0.3); }
@@ -73,7 +73,7 @@
             const styleSheet = document.createElement("style");
             styleSheet.innerText = styles;
             document.head.appendChild(styleSheet);
-            
+           
             // --- CONFIGURACIÓN E INICIALIZACIÓN ---
             const pdfUrl = "{{ $documentUrl }}";
             const existingFields = @json($existingFields);
@@ -84,6 +84,31 @@
             let selectedFieldId = null;
             const canvas = document.getElementById('pdf-viewer');
             const fieldsContainer = document.getElementById('fields-container');
+
+            // --- FUNCIÓN PARA OBTENER COORDENADAS CORRECTAS EN MÓVIL ---
+            function getCorrectCoordinates(event) {
+                let clientX, clientY;
+                
+                if (event.type.includes('touch')) {
+                    // Para eventos táctiles
+                    const touch = event.touches[0] || event.changedTouches[0];
+                    clientX = touch.clientX;
+                    clientY = touch.clientY;
+                } else {
+                    // Para eventos de ratón
+                    clientX = event.clientX;
+                    clientY = event.clientY;
+                }
+                
+                // Obtener la posición del contenedor relativa al viewport
+                const rect = fieldsContainer.getBoundingClientRect();
+                
+                // Calcular coordenadas relativas al contenedor
+                const x = clientX - rect.left;
+                const y = clientY - rect.top;
+                
+                return { x, y };
+            }
 
             pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js`;
 
@@ -99,10 +124,22 @@
 
             // --- EVENTOS DE BOTONES Y ACCIONES ---
 
-            // Lógica para el botón "Firmar como técnico" eliminada
-
+            // Evento de clic/touch mejorado para móvil
             fieldsContainer.addEventListener('click', function(e) {
                 if (e.target === fieldsContainer) {
+                    if (selectedFieldId) {
+                        selectedFieldId = null;
+                        drawFieldsForPage(pageNum);
+                    } else {
+                        openCreateFieldModal(e);
+                    }
+                }
+            });
+
+            // También agregar evento touch para mejor soporte móvil
+            fieldsContainer.addEventListener('touchend', function(e) {
+                if (e.target === fieldsContainer) {
+                    e.preventDefault();
                     if (selectedFieldId) {
                         selectedFieldId = null;
                         drawFieldsForPage(pageNum);
@@ -128,9 +165,9 @@
                     return response.json();
                 })
                 .then(data => {
-                    if(data.success) { 
+                    if(data.success) {
                         Swal.fire('¡Guardado!', 'Los campos se han guardado con éxito.', 'success');
-                    } 
+                    }
                 })
                 .catch(error => {
                     let errorMessage = 'Ocurrió un error inesperado.';
@@ -139,12 +176,11 @@
                     Swal.fire('Error', errorMessage, 'error');
                 });
             });
-            
+           
             document.getElementById('prev-page').addEventListener('click', () => { if (pageNum > 1) { pageNum--; renderPage(pageNum); } });
             document.getElementById('next-page').addEventListener('click', () => { if (pdfDoc && pdfDoc.numPages && pageNum < pdfDoc.numPages) { pageNum++; renderPage(pageNum); } });
-            
 
-            // --- FUNCIONES AUXILIARES (renderPage, drawFieldsForPage, etc.) ---
+            // --- FUNCIONES AUXILIARES ---
             function renderPage(num) {
                 if (!pdfDoc) return;
                 pdfDoc.getPage(num).then(page => {
@@ -167,12 +203,12 @@
                     fieldDiv.className = 'field-box';
                     fieldDiv.dataset.id = field.id;
                     if (field.id === selectedFieldId) fieldDiv.classList.add('selected');
-                    
+                   
                     fieldDiv.style.left = `${field.x}px`;
                     fieldDiv.style.top = `${field.y}px`;
                     fieldDiv.style.width = `${field.width}px`;
                     fieldDiv.style.height = `${field.height}px`;
-                    
+                   
                     const label = document.createElement('span');
                     label.className = 'field-label';
                     label.textContent = field.name;
@@ -195,7 +231,7 @@
                         placeholder.textContent = `Campo: ${field.name}`;
                         fieldDiv.appendChild(placeholder);
                     }
-                    
+                   
                     const deleteBtn = document.createElement('button');
                     deleteBtn.className = 'delete-btn';
                     deleteBtn.innerHTML = '&times;';
@@ -229,8 +265,11 @@
                     list.appendChild(item);
                 });
             }
-            
+           
             function openCreateFieldModal(e) {
+                // Usar coordenadas corregidas para móvil
+                const correctedCoords = getCorrectCoordinates(e);
+                
                 const tagOptions = tags.map(tag => `<option value="${tag.name}">${tag.name}</option>`).join('');
                 Swal.fire({
                     title: 'Añadir Nuevo Campo',
@@ -239,19 +278,19 @@
                 }).then(result => {
                     if (!result.isConfirmed || !result.value) return;
                     const tagName = result.value;
-                    
+                   
                     if (tagName === 'CAMPO DE FIRMA DIBUJADO') {
                         showSignatureTypeModal().then(choice => {
                             if (choice === 'worker') {
-                                createField({ name: 'CAMPO DE FIRMA', type: 'signature' }, e, null);
+                                createField({ name: 'CAMPO DE FIRMA', type: 'signature' }, correctedCoords, null);
                             } else if (choice === 'technician') {
                                 openSignaturePadModal().then(signatureDataUrl => {
-                                    if (signatureDataUrl) createField({ name: 'FIRMA (Técnico)', type: 'signature' }, e, signatureDataUrl);
+                                    if (signatureDataUrl) createField({ name: 'FIRMA (Técnico)', type: 'signature' }, correctedCoords, signatureDataUrl);
                                 });
                             }
                         });
                     } else {
-                        createField({ name: tagName, type: 'text' }, e);
+                        createField({ name: tagName, type: 'text' }, correctedCoords);
                     }
                 });
             }
@@ -274,15 +313,16 @@
                 });
             }
 
-            function createField(fieldData, event, fieldValue = null) {
+            function createField(fieldData, coordinates, fieldValue = null) {
                 const newField = {
                     id: Date.now(),
                     name: fieldData.name,
                     type: fieldData.type,
                     value: fieldValue,
                     page: pageNum,
-                    x: event.offsetX, y: event.offsetY,
-                    width: fieldValue ? 200 : 180, 
+                    x: coordinates.x,
+                    y: coordinates.y,
+                    width: fieldValue ? 200 : 180,
                     height: fieldValue ? 80 : 40,
                 };
                 fields.push(newField);
@@ -326,55 +366,119 @@
                     }
                 }).then(result => result.isConfirmed ? result.value : null);
             }
-            
+           
             function makeResizableAndDraggable(element, field) {
+                // Función para obtener coordenadas corregidas
+                function getDragCoordinates(event) {
+                    let clientX, clientY;
+                    
+                    if (event.type.includes('touch')) {
+                        const touch = event.touches[0];
+                        clientX = touch.clientX;
+                        clientY = touch.clientY;
+                    } else {
+                        clientX = event.clientX;
+                        clientY = event.clientY;
+                    }
+                    
+                    const rect = fieldsContainer.getBoundingClientRect();
+                    return {
+                        x: clientX - rect.left,
+                        y: clientY - rect.top
+                    };
+                }
+
                 // Lógica para seleccionar y mover
-                element.addEventListener('mousedown', function(e) {
+                element.addEventListener('mousedown', startDrag);
+                element.addEventListener('touchstart', startDrag, { passive: false });
+
+                function startDrag(e) {
+                    if (e.type === 'touchstart') {
+                        e.preventDefault();
+                    }
+
                     if (selectedFieldId !== field.id) {
                         selectedFieldId = field.id;
                         drawFieldsForPage(pageNum);
-                        e.stopPropagation(); 
+                        if (e.type === 'touchstart') {
+                            e.stopPropagation();
+                        }
                         return;
                     }
+
                     if (e.target.classList.contains('resizer') || e.target.classList.contains('delete-btn')) return;
-                    e.preventDefault();
-                    let prevX = e.clientX; let prevY = e.clientY;
-                    function mousemove(e) {
-                        let newX = prevX - e.clientX; let newY = prevY - e.clientY;
-                        element.style.left = (element.offsetLeft - newX) + "px";
-                        element.style.top = (element.offsetTop - newY) + "px";
-                        prevX = e.clientX; prevY = e.clientY;
+
+                    const startCoords = getDragCoordinates(e);
+                    let startX = parseFloat(element.style.left);
+                    let startY = parseFloat(element.style.top);
+
+                    function drag(e) {
+                        const currentCoords = getDragCoordinates(e);
+                        const deltaX = currentCoords.x - startCoords.x;
+                        const deltaY = currentCoords.y - startCoords.y;
+
+                        element.style.left = (startX + deltaX) + "px";
+                        element.style.top = (startY + deltaY) + "px";
                     }
-                    function mouseup() {
-                        field.x = element.offsetLeft; field.y = element.offsetTop;
-                        window.removeEventListener('mousemove', mousemove);
-                        window.removeEventListener('mouseup', mouseup);
+
+                    function stopDrag() {
+                        field.x = parseFloat(element.style.left);
+                        field.y = parseFloat(element.style.top);
+                        
+                        document.removeEventListener('mousemove', drag);
+                        document.removeEventListener('touchmove', drag);
+                        document.removeEventListener('mouseup', stopDrag);
+                        document.removeEventListener('touchend', stopDrag);
                     }
-                    window.addEventListener('mousemove', mousemove);
-                    window.addEventListener('mouseup', mouseup);
-                });
+
+                    document.addEventListener('mousemove', drag);
+                    document.addEventListener('touchmove', drag, { passive: false });
+                    document.addEventListener('mouseup', stopDrag);
+                    document.addEventListener('touchend', stopDrag);
+                }
+
                 // Lógica para redimensionar
                 const resizer = document.createElement('div');
                 resizer.className = 'resizer se';
                 element.appendChild(resizer);
-                resizer.addEventListener('mousedown', function(e) {
-                    e.stopPropagation();
-                    let prevX = e.clientX; let prevY = e.clientY;
-                    function mousemove(e) {
-                        const rect = element.getBoundingClientRect();
-                        element.style.width = rect.width - (prevX - e.clientX) + "px";
-                        element.style.height = rect.height - (prevY - e.clientY) + "px";
-                        prevX = e.clientX; prevY = e.clientY;
+
+                resizer.addEventListener('mousedown', startResize);
+                resizer.addEventListener('touchstart', startResize, { passive: false });
+
+                function startResize(e) {
+                    if (e.type === 'touchstart') {
+                        e.preventDefault();
+                        e.stopPropagation();
                     }
-                    function mouseup() {
-                        field.width = parseInt(element.style.width);
-                        field.height = parseInt(element.style.height);
-                        window.removeEventListener('mousemove', mousemove);
-                        window.removeEventListener('mouseup', mouseup);
+
+                    const startCoords = getDragCoordinates(e);
+                    let startWidth = parseFloat(element.style.width);
+                    let startHeight = parseFloat(element.style.height);
+
+                    function resize(e) {
+                        const currentCoords = getDragCoordinates(e);
+                        const deltaX = currentCoords.x - startCoords.x;
+                        const deltaY = currentCoords.y - startCoords.y;
+
+                        element.style.width = Math.max(50, startWidth + deltaX) + "px";
+                        element.style.height = Math.max(30, startHeight + deltaY) + "px";
                     }
-                    window.addEventListener('mousemove', mousemove);
-                    window.addEventListener('mouseup', mouseup);
-                });
+
+                    function stopResize() {
+                        field.width = parseFloat(element.style.width);
+                        field.height = parseFloat(element.style.height);
+                        
+                        document.removeEventListener('mousemove', resize);
+                        document.removeEventListener('touchmove', resize);
+                        document.removeEventListener('mouseup', stopResize);
+                        document.removeEventListener('touchend', stopResize);
+                    }
+
+                    document.addEventListener('mousemove', resize);
+                    document.addEventListener('touchmove', resize, { passive: false });
+                    document.addEventListener('mouseup', stopResize);
+                    document.addEventListener('touchend', stopResize);
+                }
             }
         });
     </script>

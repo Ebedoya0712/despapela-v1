@@ -122,91 +122,168 @@
                     renderPage(pageNum);
                 });
                 
-                // --- LÓGICA DE FIRMA ---
+                // --- LÓGICA DE FIRMA MEJORADA PARA MÓVIL ---
                 function openSignatureModal(container, field) {
-    return Swal.fire({
-        title: 'Tu Firma',
-        html: `
-            <div class="mb-2">Dibuja en el recuadro o sube una imagen.</div>
-            <div class="border" style="width: 100%; height: 250px;">
-                <canvas id="swal-signature-canvas"></canvas>
-            </div>
-            <input type="file" id="signature-upload" accept="image/png, image/jpeg" class="form-control form-control-sm mt-2">
-        `,
-        showCancelButton: true,
-        confirmButtonText: 'Aceptar Firma',
-        width: '600px',
-        didOpen: () => {
-            const canvas = document.getElementById('swal-signature-canvas');
-            const signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
-            
-            function resizeSwalCanvas() {
-                const ratio = Math.max(window.devicePixelRatio || 1, 1);
-                canvas.width = canvas.offsetWidth * ratio;
-                canvas.height = canvas.offsetHeight * ratio;
-                canvas.getContext("2d").scale(ratio, ratio);
-                signaturePad.clear();
-            }
-            window.addEventListener('resize', resizeSwalCanvas);
-            resizeSwalCanvas();
+                    return Swal.fire({
+                        title: 'Tu Firma',
+                        html: `
+                            <div class="mb-2">Dibuja en el recuadro o sube una imagen.</div>
+                            <div class="border" style="width: 100%; height: 250px; position: relative;">
+                                <canvas id="swal-signature-canvas" style="width: 100%; height: 100%;"></canvas>
+                            </div>
+                            <input type="file" id="signature-upload" accept="image/png, image/jpeg" class="form-control form-control-sm mt-2">
+                            <button type="button" id="clear-signature" class="btn btn-sm btn-outline-danger mt-2 w-100">Limpiar Firma</button>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: 'Aceptar Firma',
+                        width: '95%', // Mejor para móvil
+                        maxWidth: '600px',
+                        didOpen: () => {
+                            const canvas = document.getElementById('swal-signature-canvas');
+                            const signaturePad = new SignaturePad(canvas, { 
+                                backgroundColor: 'rgb(255, 255, 255)',
+                                minWidth: 1,
+                                maxWidth: 3,
+                                throttle: 16 // Mejor rendimiento en móvil
+                            });
 
-            document.getElementById('signature-upload').addEventListener('change', function(event){
-                const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => signaturePad.fromDataURL(e.target.result, {width: canvas.width, height: canvas.height});
-                    reader.readAsDataURL(file);
+                            // FUNCIÓN MEJORADA PARA REDIMENSIONAR CANVAS
+                            function resizeSwalCanvas() {
+                                const parent = canvas.parentElement;
+                                const width = parent.offsetWidth;
+                                const height = parent.offsetHeight;
+                                
+                                // Configurar tamaño del canvas
+                                canvas.width = width;
+                                canvas.height = height;
+                                
+                                // Limpiar y ajustar la firma si existe
+                                signaturePad.clear();
+                                
+                                // Ajustar el grosor de la línea basado en el tamaño de la pantalla
+                                const isMobile = window.innerWidth <= 768;
+                                signaturePad.minWidth = isMobile ? 1.5 : 1;
+                                signaturePad.maxWidth = isMobile ? 4 : 3;
+                            }
+
+                            // Redimensionar inicialmente y en cambios de tamaño
+                            resizeSwalCanvas();
+                            window.addEventListener('resize', resizeSwalCanvas);
+
+                            // Botón limpiar
+                            document.getElementById('clear-signature').addEventListener('click', () => {
+                                signaturePad.clear();
+                            });
+
+                            // Cargar imagen
+                            document.getElementById('signature-upload').addEventListener('change', function(event){
+                                const file = event.target.files[0];
+                                if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (e) => {
+                                        const img = new Image();
+                                        img.onload = function() {
+                                            // Redimensionar imagen para que quepa en el canvas
+                                            const scale = Math.min(
+                                                canvas.width / img.width,
+                                                canvas.height / img.height
+                                            );
+                                            const width = img.width * scale;
+                                            const height = img.height * scale;
+                                            
+                                            const ctx = canvas.getContext('2d');
+                                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                            ctx.drawImage(img, 
+                                                (canvas.width - width) / 2, 
+                                                (canvas.height - height) / 2, 
+                                                width, 
+                                                height
+                                            );
+                                            
+                                            // Actualizar signaturePad con la imagen
+                                            signaturePad.fromDataURL(canvas.toDataURL());
+                                        };
+                                        img.src = e.target.result;
+                                    };
+                                    reader.readAsDataURL(file);
+                                }
+                            });
+
+                            // MEJORAS ESPECÍFICAS PARA TÁCTIL
+                            if ('ontouchstart' in window) {
+                                // Prevenir scroll mientras se firma
+                                canvas.addEventListener('touchstart', (e) => {
+                                    if (e.target === canvas) {
+                                        e.preventDefault();
+                                    }
+                                }, { passive: false });
+                                
+                                canvas.addEventListener('touchmove', (e) => {
+                                    if (e.target === canvas) {
+                                        e.preventDefault();
+                                    }
+                                }, { passive: false });
+                            }
+
+                            Swal.getPopup().signaturePad = signaturePad;
+                        },
+                        preConfirm: () => {
+                            const signaturePad = Swal.getPopup().signaturePad;
+                            if (signaturePad.isEmpty()) {
+                                Swal.showValidationMessage('Por favor, proporciona tu firma.');
+                                return false;
+                            }
+                            return signaturePad.toDataURL('image/png');
+                        }
+                    }).then(result => {
+                        if (result.isConfirmed && result.value) {
+                            const signatureUrl = result.value;
+                            container.innerHTML = `<img src="${signatureUrl}" style="width:100%; height:100%; object-fit:contain; pointer-events:none;">`;
+                            container.style.border = '2px solid #198754';
+                            container.style.backgroundColor = 'rgba(25, 135, 84, 0.1)';
+                            
+                            // Desactivar clic para evitar reapertura del modal
+                            container.onclick = null;
+                            container.style.cursor = 'move';
+                            
+                            signatureDataInput.value = signatureUrl;
+                            updateSignaturePosition(container, field);
+                            
+                            makeSignatureInteractive(container, field);
+                        }
+                    });
                 }
-            });
-            Swal.getPopup().signaturePad = signaturePad;
-        },
-        preConfirm: () => {
-            const signaturePad = Swal.getPopup().signaturePad;
-            if (signaturePad.isEmpty()) {
-                Swal.showValidationMessage('Por favor, proporciona tu firma.');
-                return false;
-            }
-            return signaturePad.toDataURL('image/png');
-        }
-    }).then(result => {
-        if (result.isConfirmed && result.value) {
-            const signatureUrl = result.value;
-            container.innerHTML = `<img src="${signatureUrl}" style="width:100%; height:100%; object-fit:contain; pointer-events:none;">`;
-            container.style.border = '2px solid #198754';
-            container.style.backgroundColor = 'rgba(25, 135, 84, 0.1)';
-            
-            // 1. DESACTIVAMOS EL CLIC PARA QUE NO VUELVA A SALIR EL MODAL
-            container.onclick = null;
-            //  2. CAMBIAMOS EL CURSOR PARA INDICAR QUE SE PUEDE MOVER 
-            container.style.cursor = 'move';
-            
-            signatureDataInput.value = signatureUrl;
-            updateSignaturePosition(container, field);
-            
-            makeSignatureInteractive(container, field);
-        }
-    });
-}
 
-                // 2. AÑADIMOS LAS NUEVAS FUNCIONES PARA LA INTERACTIVIDAD
+                // FUNCIÓN PARA ACTUALIZAR POSICIÓN DE LA FIRMA
                 function updateSignaturePosition(element, field) {
                     const rect = element.getBoundingClientRect();
                     const parentRect = overlay.getBoundingClientRect();
                     
-                    // Actualizamos el objeto 'field' original con las nuevas coordenadas
+                    // Actualizar el objeto field con las nuevas coordenadas
                     field.coordinates.x = rect.left - parentRect.left;
                     field.coordinates.y = rect.top - parentRect.top;
                     field.coordinates.width = rect.width;
                     field.coordinates.height = rect.height;
 
-                    // Actualizamos el input oculto que se enviará al servidor
+                    // Actualizar input oculto para el servidor
                     signaturePositionInput.value = JSON.stringify(field.coordinates);
                 }
 
+                // FUNCIÓN MEJORADA PARA INTERACTIVIDAD EN MÓVIL
                 function makeSignatureInteractive(element, field) {
                     interact(element)
                         .draggable({
+                            modifiers: [
+                                interact.modifiers.restrictRect({
+                                    restriction: 'parent',
+                                    endOnly: false
+                                })
+                            ],
                             listeners: {
+                                start(event) {
+                                    // Agregar clase durante el arrastre para mejor feedback visual
+                                    event.target.classList.add('dragging');
+                                },
                                 move(event) {
                                     const target = event.target;
                                     const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
@@ -217,20 +294,45 @@
                                     target.setAttribute('data-y', y);
                                 },
                                 end(event) {
-                                    // Al terminar de arrastrar, actualizamos las coordenadas base del elemento
                                     const target = event.target;
-                                    target.style.left = `${target.offsetLeft + (parseFloat(target.getAttribute('data-x')) || 0)}px`;
-                                    target.style.top = `${target.offsetTop + (parseFloat(target.getAttribute('data-y')) || 0)}px`;
-                                    target.style.transform = ''; // Reseteamos la transformación
+                                    target.classList.remove('dragging');
+                                    
+                                    // Actualizar posición base del elemento
+                                    const currentX = parseFloat(target.style.left) || 0;
+                                    const currentY = parseFloat(target.style.top) || 0;
+                                    const deltaX = parseFloat(target.getAttribute('data-x')) || 0;
+                                    const deltaY = parseFloat(target.getAttribute('data-y')) || 0;
+                                    
+                                    target.style.left = `${currentX + deltaX}px`;
+                                    target.style.top = `${currentY + deltaY}px`;
+                                    target.style.transform = '';
                                     target.removeAttribute('data-x');
                                     target.removeAttribute('data-y');
+                                    
                                     updateSignaturePosition(target, field);
                                 }
                             }
                         })
                         .resizable({
-                            edges: { left: true, right: true, bottom: true, top: true },
+                            edges: { 
+                                left: true, 
+                                right: true, 
+                                bottom: true, 
+                                top: true 
+                            },
+                            modifiers: [
+                                interact.modifiers.restrictEdges({
+                                    outer: 'parent',
+                                    endOnly: false
+                                }),
+                                interact.modifiers.restrictSize({
+                                    min: { width: 50, height: 30 }
+                                })
+                            ],
                             listeners: {
+                                start(event) {
+                                    event.target.classList.add('resizing');
+                                },
                                 move(event) {
                                     const target = event.target;
                                     Object.assign(target.style, {
@@ -239,15 +341,39 @@
                                     });
                                 },
                                 end(event) {
+                                    event.target.classList.remove('resizing');
                                     updateSignaturePosition(event.target, field);
                                 }
                             }
                         });
+
+                    // MEJORAS PARA TÁCTIL
+                    if ('ontouchstart' in window) {
+                        element.style.touchAction = 'none';
+                        
+                        // Prevenir zoom con doble tap
+                        element.addEventListener('touchstart', (e) => {
+                            if (e.touches.length > 1) {
+                                e.preventDefault();
+                            }
+                        }, { passive: false });
+                    }
                 }
 
                 // --- NAVEGACIÓN Y ENVÍO ---
-                document.getElementById('prev-page').addEventListener('click', () => { if (pageNum > 1) { pageNum--; renderPage(pageNum); } });
-                document.getElementById('next-page').addEventListener('click', () => { if (pdfDoc && pageNum < pdfDoc.numPages) { pageNum++; renderPage(pageNum); } });
+                document.getElementById('prev-page').addEventListener('click', () => { 
+                    if (pageNum > 1) { 
+                        pageNum--; 
+                        renderPage(pageNum); 
+                    } 
+                });
+                
+                document.getElementById('next-page').addEventListener('click', () => { 
+                    if (pdfDoc && pageNum < pdfDoc.numPages) { 
+                        pageNum++; 
+                        renderPage(pageNum); 
+                    } 
+                });
                 
                 form.addEventListener('submit', function(event) {
                     event.preventDefault(); 
@@ -270,5 +396,30 @@
                 });
             });
         </script>
+
+        <style>
+            /* ESTILOS MEJORADOS PARA MÓVIL */
+            .dragging {
+                opacity: 0.8;
+                z-index: 1000 !important;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            }
+            
+            .resizing {
+                opacity: 0.9;
+                z-index: 1000 !important;
+            }
+            
+            /* Mejorar el canvas de firma para móvil */
+            #swal-signature-canvas {
+                touch-action: none;
+            }
+            
+            /* Asegurar que SweetAlert2 se vea bien en móvil */
+            .swal2-popup {
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+        </style>
     @endpush
 </x-app-layout>
