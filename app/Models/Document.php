@@ -4,11 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Traits\Multitenantable; // <-- 1. Importamos el Trait
+use App\Traits\Multitenantable;
 
 class Document extends Model
 {
-    use HasFactory, Multitenantable; // <-- 2. Usamos el Trait
+    use HasFactory, Multitenantable;
 
     protected $fillable = [
         'company_id',
@@ -18,10 +18,12 @@ class Document extends Model
         'signed_storage_path',
         'status',
         'expires_at',
+        'etiquette', // <-- ¡NUEVO CAMPO AGREGADO!
     ];
 
     protected $casts = [
-    'expires_at' => 'datetime', // <-- Añadir
+        'expires_at' => 'datetime',
+        'etiquette' => 'array', // <-- ¡CAST A ARRAY/JSON!
     ];
 
     public function company()
@@ -34,6 +36,7 @@ class Document extends Model
         return $this->belongsTo(User::class, 'uploader_id');
     }
 
+    // Esta relación ya no es necesaria para la 'etiquette' única, pero la dejamos por si se usa para tags múltiples.
     public function tags()
     {
         return $this->belongsToMany(Tag::class);
@@ -54,4 +57,3 @@ class Document extends Model
         return $this->hasMany(UniqueLink::class);
     }
 }
-

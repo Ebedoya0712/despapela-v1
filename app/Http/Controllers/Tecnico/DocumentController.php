@@ -11,6 +11,8 @@ use setasign\Fpdi\Tcpdf\Fpdi;
 use Illuminate\Support\Str;
 use App\Models\Tag;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 
 class DocumentController extends Controller
 {
@@ -39,47 +41,62 @@ class DocumentController extends Controller
     // En app/Http/Controllers/Tecnico/DocumentController.php
 
 public function store(Request $request)
-{
-    $request->validate([
-        'company_id' => 'required|exists:companies,id',
-        'document_file' => 'required|file|mimes:pdf|max:10240',
-        'expiration_period' => 'required|string', // Validamos el nuevo campo
-    ]);
+    {
+        $request->validate([
+            'company_id' => 'required|exists:companies,id',
+            'document_file' => 'required|file|mimes:pdf|max:10240',
+            'expiration_period' => 'required|string', 
+            'etiquette_name' => 'nullable|string|max:100',
+            
+            // CORRECCIÓN DEFINITIVA: Usamos un delimitador alternativo (@ o |) 
+            // y el patrón completo con anclajes para garantizar el formato hexadecimal.
+            'etiquette_color' => 'nullable|string|regex:@^#[0-9A-Fa-f]{6}$@', 
+        ]);
 
-    // Calculamos la fecha de caducidad
-    $expiresAt = now();
-    switch ($request->expiration_period) {
-        case '2_months':
-            $expiresAt->addMonths(2);
-            break;
-        case '6_months':
-            $expiresAt->addMonths(6);
-            break;
-        case '1_year':
-            $expiresAt->addYear();
-            break;
-        case '2_years':
-            $expiresAt->addYears(2);
-            break;
-        case '1_month':
-        default:
-            $expiresAt->addMonth();
-            break;
+        $etiquetteData = null;
+        if ($request->filled('etiquette_name') && $request->filled('etiquette_color')) {
+            $etiquetteData = [
+                'name' => $request->etiquette_name,
+                'color' => $request->etiquette_color,
+            ];
+        }
+
+        // Calculamos la fecha de caducidad
+        $expiresAt = Carbon::now(); 
+        switch ($request->expiration_period) {
+            case '2_months':
+                $expiresAt->addMonths(2);
+                break;
+            case '6_months':
+                $expiresAt->addMonths(6);
+                break;
+            case '1_year':
+                $expiresAt->addYear();
+                break;
+            case '2_years':
+                $expiresAt->addYears(2);
+                break;
+            case '1_month':
+            default:
+                $expiresAt->addMonth();
+                break;
+        }
+
+        $file = $request->file('document_file');
+        // El disco 'documents' debe estar configurado en config/filesystems.php
+        $path = $file->store('/', 'documents'); 
+
+        Document::create([
+            'company_id' => $request->company_id,
+            'uploader_id' => Auth::id(),
+            'original_filename' => $file->getClientOriginalName(),
+            'storage_path' => $path,
+            'expires_at' => $expiresAt, 
+            'etiquette' => $etiquetteData, // Guardar la etiqueta
+        ]);
+
+        return redirect()->route('tecnico.documents.index')->with('success', 'Documento subido con éxito.');
     }
-
-    $file = $request->file('document_file');
-    $path = $file->store('/', 'documents');
-
-    Document::create([
-        'company_id' => $request->company_id,
-        'uploader_id' => Auth::id(),
-        'original_filename' => $file->getClientOriginalName(),
-        'storage_path' => $path,
-        'expires_at' => $expiresAt, // Guardamos la fecha calculada
-    ]);
-
-    return redirect()->route('tecnico.documents.index')->with('success', 'Documento subido con éxito.');
-}
 
 
     public function edit(Document $document)
