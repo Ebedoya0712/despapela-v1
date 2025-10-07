@@ -3,33 +3,28 @@
         {{ __('Asignar Documentos a Trabajadores') }}
     </x-slot>
 
-    {{-- Eliminamos la alerta de Bootstrap. Ahora la manejará SweetAlert2. --}}
-
     <div class="card border-0 shadow-sm rounded-3">
         <div class="card-body">
             <h5 class="card-title mb-4">Selecciona un documento para asignar</h5>
 
-            <!-- INICIO DEL CAMBIO: Botones de Filtro -->
+            <!-- Botones de Filtro -->
             <div class="mb-4 d-flex justify-content-start">
                 <div class="btn-group" role="group" aria-label="Filtro de Documentos">
-                    {{-- El filtro 'all' muestra todos los documentos sin restricción de enlaces --}}
                     <a href="{{ route('tecnico.assignment.list', ['filter' => 'all']) }}" 
                        class="btn {{ $filter === 'all' ? 'btn-primary' : 'btn-outline-primary' }}">
                         Todos
                     </a>
-                    {{-- El filtro 'pending' muestra solo documentos sin ninguna asignación --}}
                     <a href="{{ route('tecnico.assignment.list', ['filter' => 'pending']) }}" 
                        class="btn {{ $filter === 'pending' ? 'btn-primary' : 'btn-outline-primary' }}">
                         Pendientes de Asignar
                     </a>
-                    {{-- El filtro 'assigned' muestra solo documentos con al menos una asignación --}}
                     <a href="{{ route('tecnico.assignment.list', ['filter' => 'assigned']) }}" 
                        class="btn {{ $filter === 'assigned' ? 'btn-primary' : 'btn-outline-primary' }}">
                         Ya Asignados
                     </a>
                 </div>
             </div>
-            <!-- FIN DEL CAMBIO: Botones de Filtro -->
+            <!-- Fin de Botones de Filtro -->
 
             <div class="table-responsive">
                 <table class="table table-hover table-striped" id="assignmentTable">
@@ -46,7 +41,6 @@
                         <tr>
                             <td>{{ $document->original_filename }}</td>
                             <td>{{ $document->company->name }}</td>
-                            {{-- Mostrar un texto descriptivo basado en links_count --}}
                             <td>
                                 @if ($document->links_count === 0)
                                     <span class="badge bg-danger">Sin asignar</span>
@@ -61,8 +55,11 @@
                             </td>
                         </tr>
                         @empty
+                        {{-- SOLUCIÓN: Crear una fila completa con 4 celdas para DataTables --}}
                         <tr>
-                            <td colspan="4" class="text-center text-muted">No hay documentos que coincidan con el filtro seleccionado.</td>
+                            <td class="text-center text-muted" colspan="4">
+                                No hay documentos que coincidan con el filtro seleccionado.
+                            </td>
                         </tr>
                         @endforelse
                     </tbody>
@@ -72,15 +69,31 @@
     </div>
 
     @push('scripts')
-    <!-- Asegúrate de tener cargados jQuery, DataTables JS/CSS y SweetAlert2 en tu layout principal -->
     <script>
         $(document).ready(function() {
-            // Inicialización de DataTables
+            // Inicialización de DataTables con configuración mejorada
             $('#assignmentTable').DataTable({ 
-                language: { url: 'https://cdn.datatables.net/plug-ins/1.12.1/i18n/es-ES.json' },
-                // Asegurar que el orden inicial no interfiera con el filtro de la URL
+                language: { 
+                    url: 'https://cdn.datatables.net/plug-ins/1.12.1/i18n/es-ES.json',
+                    emptyTable: "No hay documentos que coincidan con el filtro seleccionado." // Mensaje por defecto
+                },
                 ordering: true, 
-                paging: true
+                paging: true,
+                responsive: true,
+                // Configuración específica para columnas
+                columnDefs: [
+                    { 
+                        targets: [2, 3], // Columnas 'Asignado a' y 'Acciones'
+                        orderable: false,
+                        searchable: false
+                    },
+                    { 
+                        targets: '_all', // Todas las columnas
+                        defaultContent: '-' // Valor por defecto si hay celdas vacías
+                    }
+                ],
+                // Ordenar por la primera columna (Documento) por defecto
+                order: [[0, 'asc']]
             });
 
             // --- Lógica de SweetAlert2 para mensajes de sesión ---
@@ -96,7 +109,6 @@
                 });
             @endif
             @if (session('error'))
-                // Manejo de errores (añadido para manejar el error del controller)
                 Swal.fire({
                     toast: true,
                     position: 'top-end',
