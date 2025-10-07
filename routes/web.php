@@ -9,6 +9,7 @@ use App\Http\Controllers\Gestor\StaffController as GestorStaffController;
 use App\Http\Controllers\SignatureController;
 use App\Http\Controllers\Tecnico\DocumentController as TecnicoDocumentController;
 use App\Http\Controllers\Tecnico\CompanyController as TecnicoCompanyController;
+use App\Http\Controllers\Tecnico\StaffController as TecnicoStaffController; // ¡Importamos el controlador de Staff para Técnico!
 use App\Http\Controllers\Tecnico\AssignmentController;
 use App\Http\Controllers\DashboardController;
 
@@ -40,9 +41,7 @@ Route::middleware('auth')->group(function () {
 // --- Rutas para Firmas ---
 Route::middleware('auth')->prefix('signatures')->name('signatures.')->group(function () {
     Route::get('/', [SignatureController::class, 'index'])->name('index');
-    // 👇 CORRECCIÓN APLICADA AQUÍ 👇
     Route::get('/{uniqueLink:token}', [SignatureController::class, 'show'])->name('show');
-    // 👇 Y AQUÍ 👇
     Route::post('/{uniqueLink:token}', [SignatureController::class, 'store'])->name('store');
 });
 
@@ -68,9 +67,39 @@ Route::middleware(['auth', 'can:manage-documents'])->prefix('tecnico')->name('te
     // Ruta para que el Técnico vea su lista de empresas asignadas
     Route::resource('companies', TecnicoCompanyController::class)->only(['index', 'show']);
 
-    // Ruta para mostrar el editor visual de campos
+    // GESTIÓN DE TRABAJADORES (WORKERS)
+    Route::middleware('can:manage-workers')->group(function () {
+        // Listado consolidado de todos los trabajadores
+        Route::get('workers', [TecnicoStaffController::class, 'index'])->name('workers.index');
+
+        // Formulario de creación de trabajador en una empresa específica
+        // técnico/companies/{company}/workers/create -> tecnico.workers.create
+        Route::get('companies/{company}/workers/create', [TecnicoStaffController::class, 'create'])->name('workers.create');
+        
+        // Almacenamiento de nuevo trabajador
+        // técnico/companies/{company}/workers -> tecnico.workers.store
+        Route::post('companies/{company}/workers', [TecnicoStaffController::class, 'store'])->name('workers.store');
+        
+        // Formulario de edición de trabajador
+        // técnico/companies/{company}/workers/{worker}/edit -> tecnico.workers.edit
+        Route::get('companies/{company}/workers/{worker}/edit', [TecnicoStaffController::class, 'edit'])->name('workers.edit');
+        
+        // Actualización de trabajador (CAMBIADO A Route::put)
+        // técnico/companies/{company}/workers/{worker} (PATCH/PUT) -> tecnico.workers.update
+        Route::put('companies/{company}/workers/{worker}', [TecnicoStaffController::class, 'update'])->name('workers.update');
+        
+        // Eliminación de trabajador
+        // técnico/companies/{company}/workers/{worker} (DELETE) -> tecnico.workers.destroy
+        // Nota: Laravel es inteligente y encuentra el trabajador aunque la ruta no tenga la ID de la empresa en la definición de la ruta de delete.
+        Route::delete('workers/{worker}', [TecnicoStaffController::class, 'destroy'])->name('workers.destroy');
+
+        // Ruta para alternar el estado (activo/inactivo)
+        // técnico/workers/{worker}/toggle-status -> tecnico.workers.toggleStatus
+        Route::patch('workers/{worker}/toggle-status', [TecnicoStaffController::class, 'toggleStatus'])->name('workers.toggleStatus');
+    });
+
+    // Rutas de Documentos
     Route::get('documents/{document}/define-fields', [TecnicoDocumentController::class, 'defineFieldsForm'])->name('documents.defineFields');
-    // Ruta para guardar los campos definidos (se llamará vía AJAX)
     Route::post('documents/{document}/save-fields', [TecnicoDocumentController::class, 'saveFields'])->name('documents.saveFields');
 
     Route::get('documents/{document}/preview-pdf', [TecnicoDocumentController::class, 'previewPdf'])->name('documents.previewPdf');
@@ -78,6 +107,7 @@ Route::middleware(['auth', 'can:manage-documents'])->prefix('tecnico')->name('te
     // Rutas para que el Técnico gestione los documentos DENTRO de una empresa
     Route::resource('documents', TecnicoDocumentController::class);
 
+    // Rutas de Asignación
     Route::middleware('can:assign-documents')->prefix('assignment')->name('assignment.')->group(function () {
         Route::get('/', [AssignmentController::class, 'listDocuments'])->name('list');
         Route::get('/{document}', [AssignmentController::class, 'showAssignmentForm'])->name('showForm');

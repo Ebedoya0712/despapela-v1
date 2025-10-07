@@ -45,7 +45,7 @@ class AuthServiceProvider extends ServiceProvider
         // El Administrador y el Técnico pueden gestionar documentos
         Gate::define('manage-documents', fn(User $user) => in_array($user->role->name, ['Administrador', 'Técnico']));
         
-        // El Gestor y el Técnico pueden gestionar trabajadores
+        // El Gestor y el Técnico pueden gestionar trabajadores (Aplica a Trabajadores, NO a Técnicos)
         Gate::define('manage-workers', fn(User $user) => in_array($user->role->name, ['Gestor', 'Técnico']));
 
         // Todos los roles pueden ver el módulo de documentos archivados

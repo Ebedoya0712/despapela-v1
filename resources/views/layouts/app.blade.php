@@ -76,6 +76,12 @@
                     </a>
                 @endcan
 
+                @can('manage-workers')
+                    <a href="{{ route('tecnico.workers.index') }}" class="list-group-item list-group-item-action {{ request()->routeIs('tecnico.workers.*') ? 'active' : '' }}">
+                        <i class="fas fa-user-plus fa-fw me-3"></i><span>Gestionar Trabajadores</span>
+                    </a>
+                @endcan
+
                 @can('manage-documents')
                     <a href="{{ route('tecnico.documents.index') }}" class="list-group-item list-group-item-action {{ request()->routeIs('tecnico.documents.*') ? 'active' : '' }}">
                         <i class="fas fa-file-alt fa-fw me-3"></i><span>Gestionar Documentos</span>
