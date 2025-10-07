@@ -20,10 +20,10 @@ class SignatureController extends Controller
     public function index()
     {
         $pendingLinks = UniqueLink::where('user_id', Auth::id())
-                                ->where('expires_at', '>', now())
-                                ->whereHas('document', fn($q) => $q->where('status', 'pending'))
-                                ->with('document.company')
-                                ->get();
+                                 ->where('expires_at', '>', now())
+                                 ->whereHas('document', fn($q) => $q->where('status', 'pending'))
+                                 ->with('document.company')
+                                 ->get();
         
         return view('signatures.index', compact('pendingLinks'));
     }
@@ -31,43 +31,41 @@ class SignatureController extends Controller
     /**
      * Muestra la página para firmar un documento.
      */
-    // En app/Http/Controllers/SignatureController.php
+    public function show(UniqueLink $uniqueLink)
+    {
+        $document = $uniqueLink->document;
+        $worker = $uniqueLink->user;
 
-public function show(UniqueLink $uniqueLink)
-{
-    $document = $uniqueLink->document;
-    $worker = $uniqueLink->user;
+        $fields = $document->fields()->get();
 
-    $fields = $document->fields()->get();
-
-    foreach ($fields as $field) {
-        //  --- CORRECCIÓN FINAL: Comparamos con el texto EXACTO de la base de datos --- 
-        switch (trim($field->name)) {
-            case 'NOMBRE Y APELLIDOS':
-                $field->value = $worker->name;
-                break;
-            case 'DNI':
-                $field->value = $worker->dni;
-                break;
-            case 'EMAIL':
-                $field->value = $worker->email;
-                break;
-            case 'TELÉFONO': 
-                $field->value = $worker->phone;
-                break;
-            case 'NÚMERO DE CUENTA BANCARIA':
-                $field->value = $worker->bank_account;
-                break;
-            case 'DIRECCIÓN': 
-                $field->value = $worker->address;
-                break;
+        foreach ($fields as $field) {
+            //  --- CORRECCIÓN FINAL: Comparamos con el texto EXACTO de la base de datos --- 
+            switch (trim($field->name)) {
+                case 'NOMBRE Y APELLIDOS':
+                    $field->value = $worker->name;
+                    break;
+                case 'DNI':
+                    $field->value = $worker->dni;
+                    break;
+                case 'EMAIL':
+                    $field->value = $worker->email;
+                    break;
+                case 'TELÉFONO': 
+                    $field->value = $worker->phone;
+                    break;
+                case 'NÚMERO DE CUENTA BANCARIA':
+                    $field->value = $worker->bank_account;
+                    break;
+                case 'DIRECCIÓN': 
+                    $field->value = $worker->address;
+                    break;
+            }
         }
+
+        $documentUrl = Storage::disk('documents')->url($document->storage_path);
+
+        return view('signatures.show', compact('document', 'documentUrl', 'uniqueLink', 'fields'));
     }
-
-    $documentUrl = Storage::disk('documents')->url($document->storage_path);
-
-    return view('signatures.show', compact('document', 'documentUrl', 'uniqueLink', 'fields'));
-}
 
     /**
      * Procesa y guarda la firma y su posición.
@@ -86,11 +84,9 @@ public function show(UniqueLink $uniqueLink)
         Storage::disk('public')->put($signatureFileName, $signatureData);
 
         // 2. Crear el registro de la firma en la base de datos
-        // NOTA: Aquí se asume que un documento solo lo firma el trabajador.
-        // Si el técnico también necesita un registro de firma formal, esta lógica necesitaría ampliarse.
         DocumentSignature::create([
             'document_id' => $document->id,
-            'company_id' => $document->company_id,
+            'company_id' => $document->company_id, // Usamos el ID de la compañía del documento
             'signer_id' => Auth::id(),
             'filled_data' => json_decode($validated['signature_position'], true),
             'signature_image_path' => $signatureFileName,
@@ -98,7 +94,6 @@ public function show(UniqueLink $uniqueLink)
         ]);
         
         // 3. Actualizar el estado del documento a 'firmado'
-        // (Considerar una lógica más avanzada si se requieren múltiples firmas)
         $document->update(['status' => 'signed']);
         
         // 4. Invalidar el enlace de firma
@@ -109,13 +104,35 @@ public function show(UniqueLink $uniqueLink)
 
     /**
      * Muestra la lista de documentos que el usuario ya ha firmado.
+     * La lista se filtra por rol: Trabajador (solo sus documentos), Técnico/Gestor (todos los de sus empresas).
      */
     public function signedIndex()
     {
-        $signatures = DocumentSignature::where('signer_id', Auth::id())
-                                        ->with('document.company')
-                                        ->latest('signed_at')
-                                        ->get();
+        $user = Auth::user();
+        $query = DocumentSignature::with('document.company', 'signer'); 
+
+        // --- LÓGICA DE FILTRADO POR ROL ---
+        if ($user->role->name === 'Trabajador') {
+            // Trabajador: Solo ve sus propias firmas
+            $query->where('signer_id', $user->id);
+
+        } elseif (in_array($user->role->name, ['Técnico', 'Gestor'])) {
+            
+            // Técnico/Gestor: Vuelve todos los documentos firmados por los trabajadores
+            // en las compañías que el Técnico o Gestor tiene asignadas.
+            $companyIds = $user->companies()->pluck('companies.id');
+
+            if ($companyIds->isEmpty()) {
+                // Si no tiene empresas asignadas, devolvemos una colección vacía.
+                $signatures = collect();
+                return view('signatures.signed-index', compact('signatures'));
+            }
+
+            // Filtramos las firmas por el ID de la compañía que está en el registro de firma.
+            $query->whereIn('company_id', $companyIds);
+        }
+        
+        $signatures = $query->latest('signed_at')->get();
         
         return view('signatures.signed-index', compact('signatures'));
     }
@@ -198,7 +215,7 @@ public function show(UniqueLink $uniqueLink)
                 }
             }
             
-            // 👇 CAMBIO CLAVE: 'D' en lugar de 'I' para forzar la descarga 👇
+            // 'D' para forzar la descarga
             $fileName = 'firmado-' . Str::slug($document->original_filename) . '.pdf';
             return response($pdf->Output($fileName, 'D'), 200)
                 ->header('Content-Type', 'application/pdf');
@@ -223,8 +240,6 @@ public function show(UniqueLink $uniqueLink)
         try {
             $pageCount = $pdf->setSourceFile($filePath);
 
-            // Definimos la conversión estándar de Puntos-PDF a Milímetros
-            // 1 pulgada = 72 puntos, 1 pulgada = 25.4 mm
             define('PT_TO_MM', 25.4 / 72);
 
             for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
@@ -240,17 +255,13 @@ public function show(UniqueLink $uniqueLink)
 
                 foreach ($fieldsForPage as $field) {
                     $coords = $field->coordinates;
-                    // La escala del visor de JS
                     $scale = 1.5; 
                     
-                    // 👇 --- FÓRMULA DE CONVERSIÓN CORREGIDA --- 👇
-                    // 1. Convertimos los píxeles del JS a Puntos-PDF (revirtiendo la escala)
                     $x_pt = $coords['x'] / $scale;
                     $y_pt = $coords['y'] / $scale;
                     $width_pt = $coords['width'] / $scale;
                     $height_pt = $coords['height'] / $scale;
 
-                    // 2. Convertimos los Puntos-PDF a Milímetros para FPDI
                     $x_mm = $x_pt * PT_TO_MM;
                     $y_mm = $y_pt * PT_TO_MM;
                     $width_mm = $width_pt * PT_TO_MM;

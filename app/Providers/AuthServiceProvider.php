@@ -38,7 +38,9 @@ class AuthServiceProvider extends ServiceProvider
 
         // PERMISOS DE TRABAJADOR
         Gate::define('view-signature-inbox', fn(User $user) => $user->role->name === 'Trabajador');
-        Gate::define('view-signed-documents', fn(User $user) => $user->role->name === 'Trabajador');
+        
+        // CAMBIO CRÍTICO: Ahora Gestor y Técnico también pueden ver documentos firmados.
+        Gate::define('view-signed-documents', fn(User $user) => in_array($user->role->name, ['Trabajador', 'Técnico', 'Gestor']));
 
         // --- GATES COMPARTIDOS ---
         

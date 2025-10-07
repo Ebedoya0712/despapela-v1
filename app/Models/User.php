@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -17,16 +20,16 @@ class User extends Authenticatable
      * @var array<int, string>
      */
     protected $fillable = [
-    'name',
-    'email',
-    'password',
-    'role_id',
-    'is_active',
-    'dni',             // <-- Añadir
-    'phone',           // <-- Añadir
-    'bank_account',    // <-- Añadir
-    'address',         // <-- Añadir
-];
+        'name',
+        'email',
+        'password',
+        'role_id',
+        'is_active',
+        'dni',
+        'phone',
+        'bank_account',
+        'address',
+    ];
 
     /**
      * The attributes that should be hidden for serialization.
@@ -61,7 +64,7 @@ class User extends Authenticatable
      * Relación para un GESTOR.
      * Devuelve las empresas que este usuario posee directamente.
      */
-    public function managedCompanies() {
+    public function managedCompanies(): HasMany {
         return $this->hasMany(Company::class, 'gestor_id');
     }
 
@@ -69,8 +72,26 @@ class User extends Authenticatable
      * Relación para TÉCNICOS y TRABAJADORES.
      * Devuelve las empresas de las que son miembros a través de la tabla pivote.
      */
-    public function memberOfCompanies() {
+    public function memberOfCompanies(): BelongsToMany {
         return $this->belongsToMany(Company::class);
+    }
+
+    /**
+     * **[NUEVO MÉTODO UNIFICADOR]**
+     * Devuelve la colección correcta de empresas para ser usada en el controlador.
+     * Esto resuelve el error 'Call to undefined method App\Models\User::companies()'.
+     *
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function companies() 
+    {
+        if ($this->role->name === 'Gestor') {
+            // Si es Gestor, usa la relación HasMany (empresas que gestiona).
+            return $this->managedCompanies();
+        }
+        
+        // Si es Técnico o Trabajador, usa la relación BelongsToMany (empresas de las que es miembro).
+        return $this->memberOfCompanies();
     }
 
     // --- OTRAS RELACIONES ---
@@ -91,4 +112,3 @@ class User extends Authenticatable
         return $this->hasMany(DocumentSignature::class, 'signer_id');
     }
 }
-
