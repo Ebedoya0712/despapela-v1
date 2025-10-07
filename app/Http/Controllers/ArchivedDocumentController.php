@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Document;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Builder;
 
 class ArchivedDocumentController extends Controller
 {
@@ -14,20 +15,32 @@ class ArchivedDocumentController extends Controller
     public function __invoke(Request $request)
     {
         $user = Auth::user();
-        // Preparamos la consulta base para documentos archivados
-        $query = Document::where('status', 'archived')->with('company');
+        
+        // 1. SELECT CRÍTICO: Seleccionamos explícitamente solo las columnas de la tabla 'documents' 
+        $query = Document::select('documents.*') 
+                        ->where('status', 'archived')
+                        ->with('company');
 
         // Aplicamos un filtro diferente dependiendo del rol del usuario
         match ($user->role->name) {
-            'Trabajador' => $query->whereHas('signatures', fn($q) => $q->where('signer_id', $user->id)),
-            'Técnico' => $query->whereIn('company_id', $user->memberOfCompanies()->pluck('id')),
-            'Gestor' => $query->whereIn('company_id', $user->managedCompanies()->pluck('id')),
-            // El Administrador no necesita filtro, ve todos.
+            'Trabajador' => 
+                $query->whereHas('signatures', fn($q) => $q->where('signer_id', $user->id)),
+            
+            'Técnico' => 
+                // 2. CORRECCIÓN CRÍTICA: La ambigüedad proviene de la subconsulta de la relación.
+                // Forzamos a que memberOfCompanies() haga el PLUCK sobre 'companies.id'
+                $query->whereIn('documents.company_id', $user->memberOfCompanies()->pluck('companies.id')),
+            
+            'Gestor' => 
+                // Aplicamos la misma corrección al gestor por consistencia y seguridad
+                $query->whereIn('documents.company_id', $user->managedCompanies()->pluck('companies.id')),
+            
             default => null,
         };
 
-        // Obtenemos los resultados ordenados por la fecha de caducidad más reciente
-        $archivedDocuments = $query->latest('expires_at')->get();
+        // 3. ORDENACIÓN CRÍTICA: Indicamos explícitamente que la columna 'expires_at' 
+        // pertenece a la tabla 'documents'.
+        $archivedDocuments = $query->latest('documents.expires_at')->get();
 
         // Devolvemos la vista con los documentos encontrados
         return view('documents.archived', compact('archivedDocuments'));
