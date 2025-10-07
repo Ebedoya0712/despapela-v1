@@ -5,30 +5,47 @@ namespace App\Http\Controllers\Tecnico;
 use App\Http\Controllers\Controller;
 use App\Models\Document;
 use App\Models\UniqueLink;
-use App\Models\User; // Asegúrate de importar User
-use App\Mail\DocumentAssigned; // Importa la nueva clase Mailable
+use App\Models\User;
+use App\Mail\DocumentAssigned;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Mail; // Importa la Facade de Mail
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class AssignmentController extends Controller
 {
-    // ... (los otros métodos como listDocuments y showAssignmentForm se quedan igual) ...
-    public function listDocuments()
+    /**
+     * Muestra la lista de documentos, permitiendo filtrar por estado de asignación.
+     */
+    public function listDocuments(Request $request)
     {
-        $documents = Document::where('status', 'pending')
-                                ->withCount('links')
-                                ->get();
-        return view('tecnico.assignment.list', compact('documents'));
+        // Obtener el filtro de la consulta, por defecto es 'all' (todos)
+        $filter = $request->query('filter', 'all');
+
+        // Empezar la consulta, siempre contando los enlaces (asignaciones)
+        $query = Document::withCount('links')->orderBy('id', 'desc');
+
+        if ($filter === 'pending') {
+            // Filtrar por documentos que NO tienen ningún enlace (pendientes de asignar)
+            $query->has('links', '=', 0);
+        } elseif ($filter === 'assigned') {
+            // Filtrar por documentos que tienen AL MENOS un enlace (ya asignados)
+            $query->has('links', '>', 0);
+        }
+        // Si $filter es 'all', no se aplica ningún filtro de asignación.
+        
+        $documents = $query->get();
+
+        // Pasamos tanto los documentos como el filtro actual a la vista
+        return view('tecnico.assignment.list', compact('documents', 'filter'));
     }
 
     public function showAssignmentForm(Document $document)
     {
         $workers = $document->company->staff()
-                        ->whereHas('role', fn($q) => $q->where('name', 'Trabajador'))
-                        ->get();
+                            ->whereHas('role', fn($q) => $q->where('name', 'Trabajador'))
+                            ->get();
 
         $assignedWorkerIds = $document->links()->pluck('user_id')->toArray();
 
@@ -79,13 +96,4 @@ class AssignmentController extends Controller
             return redirect()->route('tecnico.assignment.list')->with('error', 'Ocurrió un error al intentar asignar el documento. Por favor, verifica el log de errores.');
         }
     }
-
-    // El método regenerateLink y su ruta ya no son necesarios con este nuevo flujo.
-    // Puedes considerar eliminarlos para limpiar el código.
-    /*
-    public function regenerateLink(Request $request, $documentId)
-    {
-        // ...
-    }
-    */
 }
